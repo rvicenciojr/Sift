@@ -1,6 +1,6 @@
 {
   "name": "csv-viewer",
-  "title": "Sift — Chronicle + Defender",
+  "title": "CSV Viewer",
   "description": "Google Chronicle / UDM + Microsoft Defender for Endpoint Investigation",
   "header": "CSV Viewer",
   "modules": ["chronicle", "defender"],
