@@ -1,47 +1,405 @@
-# Sift
+# Sift — Threat Hunting & Incident Response Investigation
 
-Browser-based threat hunting and incident response investigation tool. Works completely offline — no install, no server, no dependencies. Drop a log file in, start hunting.
+A browser-based, offline investigation tool for security analysts. Load a log file, get an adaptive MITRE ATT&CK-driven dashboard, process tree, network map, script decoder, and query builder — all without installing anything.
 
-## For analysts (using the tool)
+**No installation. No server. No data leaves your machine.**
 
-1. Get the right HTML file for your log source (see table below)
-2. Open it in **Chrome** or **Edge**
-3. Drag and drop your log file onto the page
+---
 
-That's it. One file, nothing else needed.
+## For analysts — getting started
 
-### Which file do I use?
+### Which file do I open?
 
 | File | Use when you have |
 |---|---|
-| `sift-chronicle-defender.html` | Google Chronicle exports or Microsoft Defender for Endpoint CSVs |
+| `csv-viewer.html` | Google Chronicle exports **or** Microsoft Defender for Endpoint CSVs (your main work file) |
 | `sift-windows.html` | Windows Security Event Log CSVs or `.evtx` files |
-| `sift-chronicle.html` | Google Chronicle / UDM exports only |
 | `sift-defender.html` | Microsoft Defender for Endpoint only |
+| `sift-chronicle.html` | Google Chronicle / UDM only |
 | `sift-defender-windows.html` | Defender CSVs **and** Windows Event Logs in the same investigation |
 | `sift-chronicle-windows.html` | Chronicle CSVs **and** Windows Event Logs in the same investigation |
 
-### Supported file formats
+### Opening the tool
 
-- `.csv` — exported from Chronicle, Defender, or a Windows Security Event Log query
-- `.evtx` — Windows Event Log binary format (Windows variants only)
+1. Get the right HTML file from the `dist/` folder (or from whoever sent it to you)
+2. Open it in **Chrome** or **Microsoft Edge**
+3. Drag and drop your log file onto the page, or click **📂 Open CSV**
 
----
+That's it. One file, nothing else needed. Works completely offline.
 
-## Features
-
-- **Overview dashboard** — auto-detects log source and builds a triage view: event frequency timeline, top offenders, attack chain sequence, MITRE ATT&CK coverage
-- **Process Tree** — visualizes parent/child process relationships across the dataset
-- **Network Map** — plots remote IPs and connection patterns
-- **Script Decoder** — decodes and syntax-highlights encoded PowerShell, base64, and obfuscated commands
-- **Query Builder** — builds Chronicle, KQL (Defender/Sentinel), or multi-IOC search queries from selected values
-- **Timeline** — drag-to-zoom time range filter with event density chart
-- **MITRE ATT&CK** — automatic technique mapping with TTP selector and investigation profiles
-- **Filters** — column filters, text/regex search, TTP filters, time range, all live-update the dashboard
+> **Supported browsers:** Chrome or Microsoft Edge (Chromium). Not compatible with Safari or Internet Explorer.
 
 ---
 
-## For developers (building and modifying)
+## Supported log sources
+
+### Microsoft Defender for Endpoint
+
+**How to export:** Advanced Hunting → run your KQL query → Export → CSV
+
+Auto-detected by: `ActionType`, `InitiatingProcessFileName`, `ProcessCommandLine`, `ReportId`
+
+**Features unlocked:** Process Tree · Network Map · Script Decoder · All 22 TTP context cards · Registry card · Hash card with VirusTotal links · Defender KQL query building
+
+| Feature | Defender columns |
+|---------|-----------------|
+| Timestamp | `Event Time` / `Timestamp` |
+| Device | `Computer Name` / `DeviceName` |
+| User | `Account Name` / `InitiatingProcessAccountName` |
+| Action type | `Action Type` / `ActionType` |
+| Process name | `File Name` / `FileName` |
+| Command line | `Process Command Line` / `ProcessCommandLine` |
+| Parent process | `Initiating Process File Name` / `InitiatingProcessFileName` |
+| Parent cmdline | `Initiating Process Command Line` / `InitiatingProcessCommandLine` |
+| Remote IP | `Remote IP` / `RemoteIP` |
+| Remote URL | `Remote Url` / `RemoteUrl` |
+| Remote port | `Remote Port` / `RemotePort` |
+| Registry key | `Registry Key` / `RegistryKey` |
+| SHA256 | `Sha256` / `Initiating Process SHA256` |
+| MD5 | `MD5` / `Initiating Process MD5` |
+| Process integrity | `Process Integrity Level` / `ProcessIntegrityLevel` |
+
+> **Tip:** If a card is missing, check that your Advanced Hunting query includes the relevant table. Registry card requires `DeviceRegistryEvents`. Network card requires `DeviceNetworkEvents`.
+
+---
+
+### Google Chronicle / SecOps
+
+**How to export:** Search/Detections → run UDM query → Export results → CSV
+
+Auto-detected by: `metadata.event_type`, `principal.hostname`, `security_result.severity`
+
+**Features unlocked:** Severity card · Severity auto-highlights · YARA-L generation · Chronicle UDM query building
+
+| Feature | Chronicle UDM fields |
+|---------|---------------------|
+| Timestamp | `metadata.event_timestamp` / `udm.metadata.event_timestamp` |
+| Device | `principal.hostname` / `udm.principal.hostname` |
+| User | `principal.user.userid` / `udm.principal.user.userid` |
+| Action type | `metadata.event_type` / `udm.metadata.event_type` |
+| Process / cmdline | `principal.process.command_line` |
+| Remote IP | `target.ip` / `udm.target.ip` |
+| Remote port | `target.port` / `udm.target.port` |
+| SHA256 | `principal.process.file.sha256` |
+| Severity | `security_result.severity` / `udm.security_result.severity` |
+
+---
+
+### Windows Security Event Logs
+
+**How to export:**
+
+```powershell
+# Option 1 — PowerShell (all Security events)
+Get-WinEvent -LogName Security |
+  Select-Object TimeCreated,Id,Message,MachineName |
+  Export-Csv C:\security_events.csv -NoTypeInformation
+
+# Option 2 — Specific EventIDs only
+Get-WinEvent -FilterHashtable @{LogName='Security'; Id=4688,4624,4625,4648,4720,4728} |
+  Select-Object * | Export-Csv C:\filtered_events.csv -NoTypeInformation
+```
+
+```
+# Option 3 — EvtxECmd (Eric Zimmerman tools)
+EvtxECmd.exe -f C:\Windows\System32\winevt\Logs\Security.evtx --csv C:\output\ --csvf security.csv
+```
+
+**Option 4 — Drop a `.evtx` file directly** (Windows variants only — no conversion needed)
+
+**Option 5 — SIEM export** from Sentinel, Splunk, or Elastic with at minimum: `TimeCreated`, `EventID`, `Computer`, `SubjectUserName`, `TargetUserName`, `NewProcessName`, `ParentProcessName`, `IpAddress`, `LogonType`
+
+Auto-detected by: `EventID`, `SubjectUserName`, `TargetUserName`, `LogonType`, `NewProcessName`, `IpAddress`
+
+When detected: badge switches to green **Windows Security** · dashboard shows Security-specific cards · Query Builder generates Sentinel KQL
+
+| Field | Accepted column names |
+|-------|----------------------|
+| Timestamp | `TimeCreated`, `Time Created` |
+| Event ID | `EventID`, `Event ID` |
+| Computer | `Computer`, `ComputerName`, `WorkstationName` |
+| Subject user | `SubjectUserName`, `Subject User Name` |
+| Target user | `TargetUserName`, `Target User Name`, `AccountName` |
+| Logon type | `LogonType`, `Logon Type` |
+| Source IP | `IpAddress`, `Ip Address` |
+| New process | `NewProcessName`, `New Process Name` |
+| Parent process | `ParentProcessName`, `Parent Process Name` |
+| Command line | `CommandLine`, `Command Line` |
+| New process PID | `NewProcessId`, `New Process Id` |
+| Parent PID | `ProcessId`, `Process Id` |
+| Auth package | `AuthenticationPackageName` |
+| Status / failure | `Status`, `SubStatus`, `FailureReason` |
+| Service name | `ServiceName` |
+| Service binary | `ServiceFileName` |
+
+### Generic CSV
+
+Any CSV works. The tool scans columns and assembles only the cards it has data for. Timeline, filters, highlighting, right-click menu, and query builder all work regardless of source.
+
+---
+
+## Typical investigation workflow
+
+```
+1. Load file
+   └── Tool auto-detects Defender, Chronicle, or Windows Security and unlocks relevant features
+
+2. Open Overview  (📋 button in toolbar)
+   └── ATT&CK Coverage shows which tactics and techniques fired immediately
+   └── Event Frequency Timeline shows when activity happened colored by event type
+   └── Top Offenders shows top source IPs, targeted accounts, spawned processes
+   └── Attack Chain shows events in chronological order grouped by attack stage
+   └── Notable Indicators surface suspicious patterns automatically
+   └── Windows Security: Logon Analysis, Spray Detection, Account Changes, Kerberos Events
+
+3. Pick an Investigation Profile  ("Investigating: ▾" dropdown)
+   └── Select the TTP you are hunting (PowerShell, Lateral Movement, Credential Access...)
+   └── Dashboard reshapes — most relevant cards move to the top
+   └── TTP Context Card appears with full per-event detail:
+       host · user · timestamp · parent process · full cmdline · technique-specific fields
+
+4. Click anything in the dashboard to build your filter
+   └── Every row, chip, and indicator is clickable — adds a filter and stays in overview
+   └── All cards update live as filters stack
+   └── Active filter strip shows what is active with x to remove each layer
+
+5. Hit "→ View in table" when ready
+   └── Jumps to raw table showing exactly the filtered rows
+   └── All filters remain active in the filter bar
+   └── Click 📋 Overview again to return to the dashboard
+
+6. Deep dive with analysis tools
+   └── 🌲 Process Tree — full parent/child chain for affected hosts
+   └── 🗺 Network Map — process-to-endpoint graph with beaconing detection
+   └── 🔍 Script Decoder — decoded PowerShell and AMSI content
+   └── All tools respect active filters — scoped to your current filtered dataset
+
+7. Build SIEM queries
+   └── Right-click any value → Copy Defender KQL, Chronicle UDM, or Sentinel KQL
+   └── Query Builder accumulates multiple IOCs into a single query
+```
+
+---
+
+## Overview Dashboard
+
+Open with **📋 Overview** in the analysis toolbar.
+
+### Visualization cards (all variants)
+
+| Card | Shows |
+|------|-------|
+| **Event Frequency Timeline** | Stacked bar chart of events over time, colored by event category. Click any bar to set time filter to that window |
+| **Top Offenders** | Top source IPs (failed logons), targeted accounts, spawned processes — each row clickable to filter |
+| **Attack Chain** | Events in chronological order grouped into attack stages (Initial Access → Execution → Persistence...) — click any badge to filter |
+
+### ATT&CK Coverage Card
+
+Runs MITRE ATT&CK detection signatures against your data:
+
+```
+Execution          ████████  T1059.001 PowerShell (847)  T1204.002 Malicious File (4)
+Defense Evasion    █████     T1027 Obfuscation (412)  T1218 LOLBins (89)
+Credential Access  ██        T1003.001 LSASS (4)
+Lateral Movement   █         T1021.002 SMB (12)
+```
+
+Coverage always reflects the **full dataset** regardless of active filters.
+
+### TTP Selector
+
+Shows only tactics and techniques with hits in your data. Click a tactic to expand, click any technique to add as a filter and switch investigation profile. Supports typeahead search by ID (T1059) or name (PowerShell).
+
+### Investigation Profiles
+
+The **"Investigating: ▾"** dropdown reshapes the dashboard for a specific investigation type.
+
+**Tactic profiles:**
+
+| Profile | Primary cards | Focus |
+|---------|--------------|-------|
+| 🚪 Initial Access | Process Spawn Pairs · Hosts · Timeline | First execution, phishing delivery |
+| ⚡ Execution | Process Spawn Pairs · Processes · Activity | What ran, what spawned it, command lines |
+| 🔒 Persistence | Registry · Processes · Timeline | Run keys, scheduled tasks, services |
+| ⬆ Privilege Escalation | Hosts & Accounts · Processes · Spawn Pairs | UAC bypass, token manipulation |
+| 🥷 Defense Evasion | Process Spawn Pairs · Processes · Registry | LOLBins, obfuscation, log clearing |
+| 🔑 Credential Access | Hosts & Accounts · Hashes · Processes | LSASS dumps, hash theft, kerberoasting |
+| 🔭 Discovery | Hosts & Accounts · Activity · Processes | Recon commands, enumeration |
+| ↔ Lateral Movement | Network · Hosts & Accounts · Timeline | RDP/SMB/WMI connections between hosts |
+| 📦 Collection | Processes · Network · Hosts | Data staging, archive tools |
+| 📡 C2 | Network · Timeline · Hosts | Beaconing, external IPs, suspicious domains |
+| 📤 Exfiltration | Network · Hosts · Timeline | Outbound transfers |
+| 💥 Impact | Activity · Hosts · Timeline | Ransomware, service stops |
+
+**Technique profiles** (appear only when detected — show full per-event TTP Context Card):
+
+T1059.001 PowerShell · T1059.003 Cmd Shell · T1047 WMI · T1053.005 Scheduled Task · T1543.003 Windows Service · T1003.001 LSASS Dump · T1003.006 DCSync · T1558.003 Kerberoasting · T1021.001 RDP · T1021.002 SMB · T1021.006 WinRM · T1027 Obfuscation · T1218.011 Rundll32 · T1105 Tool Transfer · T1204.002 Malicious File · T1547.001 Registry Run Key · T1071 C2 · T1571 Non-Standard Port · T1486 Ransomware · T1490 Inhibit Recovery · T1562.001 Disable Security Tools · T1496 Cryptomining
+
+### Windows Security specific cards
+
+These appear automatically when Security event logs are loaded:
+
+| Card | Shows | EventIDs |
+|------|-------|---------|
+| **Logon Analysis** | Success vs failed counts, logon type breakdown, failed ratio | 4624 / 4625 |
+| **Spray / Brute Force** | Source IPs hitting multiple accounts, accounts hit from multiple sources | 4625 patterns |
+| **Account Changes** | Account creation, group membership, disables, deletes | 4720/4722/4725/4726/4728/4732/4740/4756 |
+| **Authentication Events** | Kerberos TGT requests, service tickets, pre-auth failures | 4768/4769/4770/4771/4776 |
+| **Network Logons** | Type 3/10 logons — lateral movement paths | 4624 with LogonType 3 or 10 |
+| **RDP Sessions** | RDP connect, reconnect, logoff timeline | 21/22/23/24/25/131 |
+
+### Notable Indicators
+
+Always shown at the bottom, sorted by active profile relevance.
+
+| Severity | Rule |
+|----------|------|
+| 🔴 Critical | Encoded PowerShell (-enc / -encodedCommand) |
+| 🔴 Critical | Inline Base64 decode (FromBase64String) |
+| 🔴 Critical | Office application spawning shell (WINWORD/EXCEL → cmd/powershell) |
+| 🔴 Critical | Credential dumping (lsass, mimikatz, comsvcs MiniDump, lazagne) |
+| 🟠 High | Scheduled task creation |
+| 🟠 High | WMI remote execution |
+| 🟠 High | Service installation or modification |
+| 🟠 High | LOLBin usage (certutil, mshta, rundll32, regsvr32, wscript, bitsadmin) |
+| 🟠 High | PowerShell download cradle (WebClient / IEX / Invoke-WebRequest) |
+| 🟠 High | Execution from suspicious path (%TEMP%, AppData, Users\Public) |
+| 🟠 High | Heavily obfuscated command line (>500 characters) |
+| 🟡 Medium | High-port outbound connections (>49151) |
+| 🟡 Medium | Suspicious TLD contact (.xyz, .top, .tk, .ru, .pw, .cc) |
+| 🔴 Critical | Chronicle Critical / High severity events |
+
+---
+
+## Analysis Tools
+
+All tools respect active filters — scoped to the current filtered dataset.
+
+### 🌲 Process Tree
+
+Hierarchical parent/child process view. Click any node for full detail: cmdline, hashes, network events, registry changes. Filter by host or search by process/cmdline/IP.
+
+**Windows Security action type categories:**
+
+| Category | Color | EventIDs |
+|----------|-------|---------|
+| Process | 🔴 Red | 4688 Process Created, 4689 Terminated |
+| Logon / Auth | 🔵 Blue | 4624 Success, 4634 Logoff, 4648 Explicit, 4776 NTLM |
+| Auth Failure | 🔴 Bright Red | 4625 Failed Logon, 4740 Lockout, 4771 Kerberos Failure |
+| Kerberos | 🩵 Teal | 4768 TGT Request, 4769 Service Ticket, 4770 Renew |
+| Script / PS | 🟠 Orange | 4103/4104 PowerShell Logging, 4697/7045 Services, 4698 Scheduled Tasks |
+| Account Changes | 🟣 Purple | 4720 Create, 4725 Disable, 4726 Delete, 4738 Modify |
+| Group Changes | 🟣 Violet | 4728/4732/4756 Group Membership |
+| Log / Policy | 🩷 Pink | 1102/1100 Log Clear, 4719 Audit Policy Change |
+
+**Enable process creation logging (Windows):**
+
+```powershell
+# Enable 4688 process creation audit
+auditpol /set /subcategory:"Process Creation" /success:enable /failure:enable
+
+# Enable command line in 4688 events
+reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System\Audit" /v ProcessCreationIncludeCmdLine_Enabled /t REG_DWORD /d 1
+```
+
+### 🗺 Network Map
+
+Force-directed canvas graph of process → IP connections. Edge width = connection frequency. Detects beaconing (regular-interval connections). Click any node for detail.
+
+### 🔍 Script Decoder
+
+Detects and decodes:
+
+| Source | How detected |
+|--------|-------------|
+| **4104 Script Block Logging** | EventID == 4104 |
+| **4103 Module Logging** | EventID == 4103 |
+| **Encoded PowerShell (-enc)** | Regex on CommandLine — decodes UTF-16LE base64 |
+| **FromBase64String** | Regex on CommandLine — decodes inline base64 |
+
+### 📊 Timeline
+
+Event distribution chart. Drag to select a time range — table updates on release. Double-click to reset. Quick-picks: 1h · 6h · 12h · 1d · 1w · 1mo.
+
+### 📈 Bytes Chart
+
+Network traffic volume (bytes in/out per time bucket). Requires bytes columns in the export.
+
+### 🔨 Query Builder
+
+Floating draggable panel. Right-click any value → "Add to Query Builder" to accumulate IOCs. Toggle AND/OR logic.
+
+- **Defender** → Advanced Hunting KQL
+- **Chronicle** → UDM search query
+- **Windows Security** → Sentinel SecurityEvent KQL
+
+```kql
+// Example Sentinel KQL output
+SecurityEvent
+| where EventID == 4688
+| where CommandLine has "mimikatz"
+
+SecurityEvent
+| where EventID == 4625
+| where IpAddress == "185.220.101.45"
+```
+
+---
+
+## Filter Bar
+
+| Control | What it does |
+|---------|-------------|
+| ＋ Add filter row | Adds a condition with column, match mode, and value |
+| Match modes | contains · does not contain · equals · starts with · ends with · matches regex · not regex |
+| ✕ Clear all | Removes all filters and resets to full dataset |
+| ⊞ Columns | Show/hide columns, drag ⠿ grip to reorder |
+| ⭐ Presets | Save and reload named filter configurations |
+| 🎨 Highlights | Colour-code rows by term (9 colours) |
+| ☑ Filters enabled | Temporarily disable all filters without deleting them |
+| 🎯 TTP chip | Added when clicking a TTP — shows `T1059.001 · PowerShell` |
+
+**Column reordering:** Right-click any column header → Move left / Move right / Move to first / Move to last. Or drag column headers directly.
+
+---
+
+## Right-Click Context Menu
+
+Available everywhere — table cells, overview rows, context card fields, process tree nodes, network map nodes, script decoder entries.
+
+| Option | Description |
+|--------|-------------|
+| Filter by this value | Adds a contains filter |
+| Exclude this value | Adds a does-not-contain filter |
+| Copy value | Copies raw value |
+| Copy row as JSON | Full row as formatted JSON |
+| Copy row as CSV | Full row as CSV line |
+| Copy Chronicle UDM query | Schema-accurate UDM search |
+| Copy Defender KQL | Schema-accurate Advanced Hunting KQL |
+| Copy Sentinel KQL | SecurityEvent KQL (Windows Security logs) |
+| Add to Query Builder | Adds to the floating multi-IOC panel |
+| VirusTotal | Opens VT search for IPs, hashes, domains, URLs |
+| Shodan | Opens Shodan for IPs |
+| CyberChef | Opens CyberChef with value pre-loaded |
+
+---
+
+## Keyboard & Mouse
+
+| Action | Where | Result |
+|--------|-------|--------|
+| Escape | Anywhere | Close open modal / sidebar / picker |
+| Arrow left / right | Row detail open | Navigate to previous / next row |
+| Hover list + type letters | Overview scrollable lists | Typeahead jump to first matching item |
+| Hover TTP Selector + type | Overview TTP panel | Keystrokes route to search box |
+| Drag on timeline | Timeline chart | Select time range |
+| Double-click on timeline | Timeline chart | Clear time range filter |
+| Drag column header | Table header | Reorder column |
+| Right-click column header | Table header | Move / Sort / Hide |
+
+---
+
+## For developers — building and modifying
 
 ### Requirements
 
@@ -53,7 +411,7 @@ That's it. One file, nothing else needed.
 ```
 sift/
 ├── src/
-│   ├── shared/          # code included in every variant
+│   ├── shared/          — code included in every variant
 │   │   ├── app.js
 │   │   ├── overview.js
 │   │   ├── datasource.js
@@ -64,21 +422,21 @@ sift/
 │   │   ├── timeline.js
 │   │   ├── networkmap.js
 │   │   └── chronicle.js
-│   └── modules/         # data-source specific, loaded per variant
+│   └── modules/         — data-source specific, loaded per variant
 │       ├── chronicle.js
 │       ├── defender.js
 │       ├── windows.js
 │       └── evtx-parser.js
-├── variants/            # one folder per deliverable
-│   ├── chronicle/manifest.json
-│   ├── defender/manifest.json
-│   ├── windows/manifest.json
+├── variants/            — one folder per deliverable
 │   ├── chronicle-defender/manifest.json
+│   ├── chronicle-windows/manifest.json
+│   ├── chronicle/manifest.json
 │   ├── defender-windows/manifest.json
-│   └── chronicle-windows/manifest.json
-├── template.html        # HTML shell (do not edit directly)
-├── build.py             # assembles dist/ files
-└── dist/                # built output — these are the files you distribute
+│   ├── defender/manifest.json
+│   └── windows/manifest.json
+├── template.html        — HTML shell with <!-- SIFT: --> markers
+├── build.py             — assembles dist/ files
+└── dist/                — built output, these are the files you distribute
 ```
 
 ### Building
@@ -87,52 +445,59 @@ sift/
 # Build all variants
 python build.py
 
-# Build a single variant
+# Build a single variant by folder name
 python build.py windows
 python build.py chronicle-defender
 ```
 
-Output goes to `dist/`. Each file is fully self-contained — all JS and CSS is inlined. Send just the HTML file, nothing else is needed.
+Each built file in `dist/` is fully self-contained — all JS and CSS is inlined. Send just the HTML file, nothing else is needed.
 
-### Adding a new variant
+### How the build works
 
-1. Create a folder under `variants/` with a `manifest.json`:
-
-```json
-{
-  "name": "sift-splunk",
-  "title": "Sift — Splunk",
-  "description": "Splunk export investigation",
-  "modules": ["splunk"],
-  "features": {
-    "chronicle": false,
-    "defender": false,
-    "windows": false,
-    "evtx": false
-  }
-}
-```
-
-2. Create `src/modules/splunk.js` with the data-source specific detection and UI code
-3. Run `python build.py splunk`
-
-### Adding a feature to all variants
-
-Edit any file in `src/shared/` and run `python build.py`. All variants rebuild automatically.
-
-### Adding a Windows-only feature
-
-Edit `src/modules/windows.js` and run `python build.py`. Only Windows-enabled variants get the change.
-
----
-
-## How the build works
-
-`build.py` reads each `manifest.json`, takes `template.html` as the shell, and inlines every source file directly into the HTML as `<script>` and `<style>` blocks. The result is a single HTML file that contains everything — no external dependencies, works offline, open in any modern browser.
+`build.py` reads each `manifest.json`, takes `template.html` as the shell, and inlines every source file directly into the HTML as `<script>` and `<style>` blocks:
 
 ```
 src/shared/*.js  ──┐
 src/shared/*.css ──┤
 src/modules/*.js ──┤── build.py ──► dist/sift-{variant}.html
-template.html    ──┘                (self-contained, ~650 KB)
+template.html    ──┘                (~650 KB, zero external dependencies)
+```
+
+### Adding a new variant
+
+1. Create `variants/my-variant/manifest.json`:
+
+```json
+{
+  "name": "sift-my-variant",
+  "title": "Sift — My Variant",
+  "description": "Description here",
+  "modules": ["chronicle", "windows", "evtx-parser"],
+  "features": {
+    "chronicle": true,
+    "defender": false,
+    "windows": true,
+    "evtx": true
+  }
+}
+```
+
+2. Run `python build.py my-variant`
+
+### Adding a new data source
+
+1. Create `src/modules/splunk.js` with detection and UI code
+2. Add it to any variant manifest under `"modules"`
+3. Run `python build.py`
+
+### Header name override
+
+Any variant can override the header `<h1>` by adding a `"header"` field to its manifest:
+
+```json
+{
+  "name": "csv-viewer",
+  "header": "CSV Viewer",
+  ...
+}
 ```
