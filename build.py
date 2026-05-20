@@ -57,8 +57,10 @@ def build_variant(variant_dir: Path) -> None:
 
     html = TEMPLATE.read_text(encoding='utf-8')
 
-    # ── 1. Title ────────────────────────────────────────────────────────────────
+    # ── 1. Title + optional header name override ────────────────────────────────
     html = html.replace('<!-- SIFT:title -->', title)
+    header_name = manifest.get('header', 'Sift')
+    html = html.replace('<h1>Sift</h1>', f'<h1>{header_name}</h1>')
 
     # ── 2. Config (feature flags injected before any other script) ────────────
     config_js = f'var SIFT_FEATURES = {json.dumps(features, separators=(",", ":"))};'

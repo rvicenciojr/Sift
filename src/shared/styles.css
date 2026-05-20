@@ -126,7 +126,7 @@
     font-weight: 700;
     color: var(--cb-yellow);
     white-space: nowrap;
-    letter-spacing: 0.18em;
+    letter-spacing: 0;
     text-transform: uppercase;
     pointer-events: none;
   }

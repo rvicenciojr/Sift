@@ -4,7 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Sift — Chronicle + Defender</title>
-<script>/* Sift build: sift-chronicle-defender */
+<script>/* Sift build: csv-viewer */
 var SIFT_FEATURES = {"chronicle":true,"defender":true,"windows":false,"evtx":false};
 </script>
 <style>
@@ -136,7 +136,7 @@ var SIFT_FEATURES = {"chronicle":true,"defender":true,"windows":false,"evtx":fal
     font-weight: 700;
     color: var(--cb-yellow);
     white-space: nowrap;
-    letter-spacing: 0.18em;
+    letter-spacing: 0;
     text-transform: uppercase;
     pointer-events: none;
   }
@@ -2977,7 +2977,7 @@ var SIFT_FEATURES = {"chronicle":true,"defender":true,"windows":false,"evtx":fal
 
 <!-- Header Controls -->
 <header>
-  <h1>Sift</h1>
+  <h1>CSV Viewer</h1>
   <div class="controls">
     <button onclick="document.getElementById('fileInput').click()">📂 Open CSV</button>
     <input type="file" id="fileInput" accept=".csv" multiple onchange="loadFiles(this.files)" style="display:none">
