@@ -1,0 +1,14 @@
+{
+  "name": "sift-chronicle",
+  "title": "Sift \u2014 Chronicle",
+  "description": "Google Chronicle / UDM Security Event Investigation",
+  "modules": [
+    "chronicle"
+  ],
+  "features": {
+    "chronicle": true,
+    "defender": false,
+    "windows": false,
+    "evtx": false
+  }
+}

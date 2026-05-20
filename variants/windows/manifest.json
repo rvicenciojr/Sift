@@ -1,0 +1,15 @@
+{
+  "name": "sift-windows",
+  "title": "Sift \u2014 Windows",
+  "description": "Windows Security Event Log & .evtx Investigation",
+  "modules": [
+    "windows",
+    "evtx-parser"
+  ],
+  "features": {
+    "chronicle": false,
+    "defender": false,
+    "windows": true,
+    "evtx": true
+  }
+}

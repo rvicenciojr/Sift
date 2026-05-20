@@ -1,0 +1,16 @@
+{
+  "name": "sift-defender-windows",
+  "title": "Sift \u2014 Defender + Windows",
+  "description": "Microsoft Defender for Endpoint + Windows Security Event Log",
+  "modules": [
+    "defender",
+    "windows",
+    "evtx-parser"
+  ],
+  "features": {
+    "chronicle": false,
+    "defender": true,
+    "windows": true,
+    "evtx": true
+  }
+}

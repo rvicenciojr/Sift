@@ -1,0 +1,14 @@
+{
+  "name": "sift-defender",
+  "title": "Sift \u2014 Defender",
+  "description": "Microsoft Defender for Endpoint Investigation",
+  "modules": [
+    "defender"
+  ],
+  "features": {
+    "chronicle": false,
+    "defender": true,
+    "windows": false,
+    "evtx": false
+  }
+}

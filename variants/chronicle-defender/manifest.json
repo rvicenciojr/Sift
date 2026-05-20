@@ -1,0 +1,12 @@
+{
+  "name": "sift-chronicle-defender",
+  "title": "Sift — Chronicle + Defender",
+  "description": "Google Chronicle / UDM + Microsoft Defender for Endpoint Investigation",
+  "modules": ["chronicle", "defender"],
+  "features": {
+    "chronicle": true,
+    "defender": true,
+    "windows": false,
+    "evtx": false
+  }
+}
