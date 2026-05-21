@@ -124,14 +124,30 @@
 
     isChronicleData      = udmHits.length >= 2;
     isWindowsSecurityLog = !isChronicleData && defenderHits.length < 2 && winSecHits.length >= 3;
+
+    // Run Sift module detection — sets active module + syncs global flags
+    if (typeof Sift !== 'undefined') Sift.detect(hdrs);
+
     udmUpdateBadge(defenderHits.length >= 2);
     return isChronicleData;
   }
 
   function udmUpdateBadge(isDefender) {
-
     const dsb = document.getElementById('dataSourceBadge');
     if (!dsb) return;
+
+    // If a Sift module is active, use its badge config
+    if (typeof Sift !== 'undefined' && Sift.getBadge()) {
+      const b = Sift.getBadge();
+      dsb.textContent  = b.text;
+      dsb.style.display    = '';
+      dsb.style.background = b.bg;
+      dsb.style.border     = b.border;
+      dsb.style.color      = b.color;
+      return;
+    }
+
+    // Fallback for when no module is loaded
     if (isChronicleData) {
       dsb.textContent = 'Chronicle';
       dsb.style.display = '';

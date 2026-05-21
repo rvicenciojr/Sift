@@ -24,6 +24,7 @@ TEMPLATE  = ROOT / 'template.html'
 
 # Ordered list of shared scripts (load order matters)
 SHARED_SCRIPTS = [
+    'sift-core.js',    # must be first — modules call Sift.register() on load
     'datasource.js',
     'chronicle.js',
     'app.js',

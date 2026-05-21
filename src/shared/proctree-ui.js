@@ -7,23 +7,25 @@
 
   // Show/hide analysis buttons based on loaded data
   function updateProcTreeBtn() {
-    // Ensure columns are resolved before any ptGet calls below
     if (headers.length) ptResolveColumns(headers);
 
-    const btn    = document.getElementById('procTreeBtn');
-    const nmBtn  = document.getElementById('networkMapBtn');
-    const amsiB  = document.getElementById('amsiBtn');
+    const btn   = document.getElementById('procTreeBtn');
+    const nmBtn = document.getElementById('networkMapBtn');
+    const amsiB = document.getElementById('amsiBtn');
     const isWinSec = typeof isWindowsSecurityLog !== 'undefined' && isWindowsSecurityLog;
 
-    // Process Tree: show for Defender OR Windows Security 4688 events with process data
-    const hasTree = isWinSec
+    // Use Sift module feature flags if available, otherwise fall back to legacy logic
+    const moduleNetworkOk = (typeof Sift === 'undefined') ? true : Sift.hasFeature('network-map');
+    const moduleTreeOk    = (typeof Sift === 'undefined') ? true : Sift.hasFeature('process-tree');
+    const moduleScriptOk  = (typeof Sift === 'undefined') ? true : Sift.hasFeature('script-decoder');
+
+    const hasTree = moduleTreeOk && (isWinSec
       ? allRows.some(r => (ptGet(r,'action')||'').trim() === '4688' && (ptGet(r,'fileName') || ptGet(r,'initFile')))
-      : ptHasDefenderCols();
+      : ptHasDefenderCols());
 
-    // Network Map: hide for Windows Security logs — logon source IPs are not network connections
-    const hasNetwork = isWinSec ? false : nmHasNetworkData();
+    const hasNetwork = moduleNetworkOk && nmHasNetworkData();
+    const hasAmsi    = moduleScriptOk  && amsiHasEventData();
 
-    const hasAmsi    = amsiHasEventData();
     if (btn)   btn.style.display   = hasTree    ? 'inline-flex' : 'none';
     if (nmBtn) nmBtn.style.display = hasNetwork ? 'inline-flex' : 'none';
     if (amsiB) amsiB.style.display = hasAmsi    ? 'inline-flex' : 'none';
@@ -136,26 +138,31 @@
   function openProcTree() {
     const isWinSec = typeof isWindowsSecurityLog !== 'undefined' && isWindowsSecurityLog;
 
-    // Switch legend and colors based on data source
-    PT_ACTION_CATS = isWinSec ? PT_ACTION_CATS_WINSEC : PT_ACTION_CATS_DEFENDER;
+    // Use module action categories if available, otherwise fall back to legacy arrays
+    const moduleCats = (typeof Sift !== 'undefined') ? Sift.getActionCategories() : null;
+    PT_ACTION_CATS = moduleCats || (isWinSec ? PT_ACTION_CATS_WINSEC : PT_ACTION_CATS_DEFENDER);
 
-    // Update source badge
+    // Source badge — use module badge config if available
     const badge = document.getElementById('ptSourceBadge');
     if (badge) {
-      badge.textContent = isWinSec ? 'WINDOWS SECURITY' : 'DEFENDER CSV';
-      badge.style.background  = isWinSec ? 'rgba(0,188,102,0.15)' : 'rgba(255,215,0,0.15)';
-      badge.style.borderColor = isWinSec ? '#00bc66' : 'var(--cb-yellow)';
-      badge.style.color       = isWinSec ? '#00bc66' : 'var(--cb-yellow)';
+      const moduleBadge = (typeof Sift !== 'undefined') ? Sift.getBadge() : null;
+      if (moduleBadge) {
+        badge.textContent       = moduleBadge.text.toUpperCase();
+        badge.style.background  = moduleBadge.bg;
+        badge.style.borderColor = moduleBadge.border.replace('1px solid ','');
+        badge.style.color       = moduleBadge.color;
+      } else {
+        badge.textContent = isWinSec ? 'WINDOWS SECURITY' : 'DEFENDER CSV';
+        badge.style.background  = isWinSec ? 'rgba(0,188,102,0.15)' : 'rgba(255,215,0,0.15)';
+        badge.style.borderColor = isWinSec ? '#00bc66' : 'var(--cb-yellow)';
+        badge.style.color       = isWinSec ? '#00bc66' : 'var(--cb-yellow)';
+      }
     }
 
-    // Update hardcoded legend spans to match current source
+    // Render legend from active action categories
     const legendEl = document.getElementById('ptLegendActions');
-    if (legendEl && isWinSec) {
-      legendEl.innerHTML = PT_ACTION_CATS_WINSEC.map(c =>
-        `<span class="pt-legend-item" style="color:${c.color}">● ${c.label}</span>`
-      ).join('');
-    } else if (legendEl) {
-      legendEl.innerHTML = PT_ACTION_CATS_DEFENDER.map(c =>
+    if (legendEl) {
+      legendEl.innerHTML = PT_ACTION_CATS.map(c =>
         `<span class="pt-legend-item" style="color:${c.color}">● ${c.label}</span>`
       ).join('');
     }

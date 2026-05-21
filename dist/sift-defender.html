@@ -3735,6 +3735,117 @@ self.onmessage = function (e) {
 
 </script>
 
+<!-- shared: sift-core.js -->
+<script>
+// sift-core.js — Sift plugin registration system
+// Modules call Sift.register() to declare detection, columns, features, and UI.
+// The core (app, overview, proctree, query builder) reads from the active module
+// instead of having hardcoded knowledge of each data source.
+
+(function(global) {
+  'use strict';
+
+  var _modules     = [];   // all registered modules in priority order
+  var _active      = null; // the currently detected module
+
+  var Sift = {
+
+    // ── Registration ─────────────────────────────────────────────────────────
+    // Called by each module file to declare itself
+    register: function(config) {
+      _modules.push(config);
+    },
+
+    // ── Detection ─────────────────────────────────────────────────────────────
+    // Called after a file loads — runs each module's detect() until one matches
+    detect: function(headers) {
+      _active = null;
+      for (var i = 0; i < _modules.length; i++) {
+        var mod = _modules[i];
+        if (mod.detect && mod.detect(headers)) {
+          _active = mod;
+          break;
+        }
+      }
+
+      // Keep global flags in sync for backward compatibility with existing code
+      global.isChronicleData      = _active ? _active.name === 'chronicle'  : false;
+      global.isWindowsSecurityLog = _active ? _active.name === 'windows'    : false;
+
+      return _active;
+    },
+
+    // ── Active module access ──────────────────────────────────────────────────
+    getActiveModule:   function() { return _active; },
+    getModuleName:     function() { return _active ? _active.name : null; },
+
+    // Column mapping — returns the actual CSV column name for a semantic key
+    // e.g. Sift.col('ts') → 'Timestamp' or 'TimeCreated' depending on source
+    col: function(key) {
+      if (_active && _active.columns && _active.columns[key]) return _active.columns[key];
+      return null;
+    },
+
+    // Feature flag — should this toolbar button / feature be shown?
+    hasFeature: function(feature) {
+      if (!_active || !_active.features) return true; // default: show everything
+      return _active.features.indexOf(feature) >= 0;
+    },
+
+    // Process tree action categories for the active module
+    getActionCategories: function() {
+      return _active && _active.actionCategories ? _active.actionCategories : null;
+    },
+
+    // Query builder — build a native query string for the active module
+    buildQuery: function(column, value, operator) {
+      if (_active && _active.buildQuery) return _active.buildQuery(column, value, operator || 'eq');
+      return null;
+    },
+
+    // Source badge config { text, background, border, color }
+    getBadge: function() {
+      return _active && _active.badge ? _active.badge : null;
+    },
+
+    // Custom toolbar buttons registered by the active module
+    getCustomButtons: function() {
+      return _active && _active.customButtons ? _active.customButtons : [];
+    },
+
+    // Overview cards — module-specific cards to render in the overview panel
+    // Returns array of DOM elements or null
+    getOverviewCards: function(data, s) {
+      if (_active && _active.overviewCards) return _active.overviewCards(data, s);
+      return [];
+    },
+
+    // Investigation profile card ordering override from active module
+    getProfileOrder: function(profile) {
+      if (_active && _active.profileCards && _active.profileCards[profile]) {
+        return _active.profileCards[profile];
+      }
+      return null;
+    },
+
+    // Reset — called when a new file loads before detection runs
+    reset: function() {
+      _active = null;
+      global.isChronicleData      = false;
+      global.isWindowsSecurityLog = false;
+    },
+
+    // List all registered module names (for debugging)
+    listModules: function() {
+      return _modules.map(function(m) { return m.name; });
+    },
+  };
+
+  global.Sift = Sift;
+
+})(window);
+
+</script>
 <!-- shared: datasource.js -->
 <script>
 // datasource.js — Data source detection, column mapping, and query building
@@ -3863,14 +3974,30 @@ self.onmessage = function (e) {
 
     isChronicleData      = udmHits.length >= 2;
     isWindowsSecurityLog = !isChronicleData && defenderHits.length < 2 && winSecHits.length >= 3;
+
+    // Run Sift module detection — sets active module + syncs global flags
+    if (typeof Sift !== 'undefined') Sift.detect(hdrs);
+
     udmUpdateBadge(defenderHits.length >= 2);
     return isChronicleData;
   }
 
   function udmUpdateBadge(isDefender) {
-
     const dsb = document.getElementById('dataSourceBadge');
     if (!dsb) return;
+
+    // If a Sift module is active, use its badge config
+    if (typeof Sift !== 'undefined' && Sift.getBadge()) {
+      const b = Sift.getBadge();
+      dsb.textContent  = b.text;
+      dsb.style.display    = '';
+      dsb.style.background = b.bg;
+      dsb.style.border     = b.border;
+      dsb.style.color      = b.color;
+      return;
+    }
+
+    // Fallback for when no module is loaded
     if (isChronicleData) {
       dsb.textContent = 'Chronicle';
       dsb.style.display = '';
@@ -8939,23 +9066,25 @@ ${evtLine}    \$e.${udm} = "${v}"
 
   // Show/hide analysis buttons based on loaded data
   function updateProcTreeBtn() {
-    // Ensure columns are resolved before any ptGet calls below
     if (headers.length) ptResolveColumns(headers);
 
-    const btn    = document.getElementById('procTreeBtn');
-    const nmBtn  = document.getElementById('networkMapBtn');
-    const amsiB  = document.getElementById('amsiBtn');
+    const btn   = document.getElementById('procTreeBtn');
+    const nmBtn = document.getElementById('networkMapBtn');
+    const amsiB = document.getElementById('amsiBtn');
     const isWinSec = typeof isWindowsSecurityLog !== 'undefined' && isWindowsSecurityLog;
 
-    // Process Tree: show for Defender OR Windows Security 4688 events with process data
-    const hasTree = isWinSec
+    // Use Sift module feature flags if available, otherwise fall back to legacy logic
+    const moduleNetworkOk = (typeof Sift === 'undefined') ? true : Sift.hasFeature('network-map');
+    const moduleTreeOk    = (typeof Sift === 'undefined') ? true : Sift.hasFeature('process-tree');
+    const moduleScriptOk  = (typeof Sift === 'undefined') ? true : Sift.hasFeature('script-decoder');
+
+    const hasTree = moduleTreeOk && (isWinSec
       ? allRows.some(r => (ptGet(r,'action')||'').trim() === '4688' && (ptGet(r,'fileName') || ptGet(r,'initFile')))
-      : ptHasDefenderCols();
+      : ptHasDefenderCols());
 
-    // Network Map: hide for Windows Security logs — logon source IPs are not network connections
-    const hasNetwork = isWinSec ? false : nmHasNetworkData();
+    const hasNetwork = moduleNetworkOk && nmHasNetworkData();
+    const hasAmsi    = moduleScriptOk  && amsiHasEventData();
 
-    const hasAmsi    = amsiHasEventData();
     if (btn)   btn.style.display   = hasTree    ? 'inline-flex' : 'none';
     if (nmBtn) nmBtn.style.display = hasNetwork ? 'inline-flex' : 'none';
     if (amsiB) amsiB.style.display = hasAmsi    ? 'inline-flex' : 'none';
@@ -9068,26 +9197,31 @@ ${evtLine}    \$e.${udm} = "${v}"
   function openProcTree() {
     const isWinSec = typeof isWindowsSecurityLog !== 'undefined' && isWindowsSecurityLog;
 
-    // Switch legend and colors based on data source
-    PT_ACTION_CATS = isWinSec ? PT_ACTION_CATS_WINSEC : PT_ACTION_CATS_DEFENDER;
+    // Use module action categories if available, otherwise fall back to legacy arrays
+    const moduleCats = (typeof Sift !== 'undefined') ? Sift.getActionCategories() : null;
+    PT_ACTION_CATS = moduleCats || (isWinSec ? PT_ACTION_CATS_WINSEC : PT_ACTION_CATS_DEFENDER);
 
-    // Update source badge
+    // Source badge — use module badge config if available
     const badge = document.getElementById('ptSourceBadge');
     if (badge) {
-      badge.textContent = isWinSec ? 'WINDOWS SECURITY' : 'DEFENDER CSV';
-      badge.style.background  = isWinSec ? 'rgba(0,188,102,0.15)' : 'rgba(255,215,0,0.15)';
-      badge.style.borderColor = isWinSec ? '#00bc66' : 'var(--cb-yellow)';
-      badge.style.color       = isWinSec ? '#00bc66' : 'var(--cb-yellow)';
+      const moduleBadge = (typeof Sift !== 'undefined') ? Sift.getBadge() : null;
+      if (moduleBadge) {
+        badge.textContent       = moduleBadge.text.toUpperCase();
+        badge.style.background  = moduleBadge.bg;
+        badge.style.borderColor = moduleBadge.border.replace('1px solid ','');
+        badge.style.color       = moduleBadge.color;
+      } else {
+        badge.textContent = isWinSec ? 'WINDOWS SECURITY' : 'DEFENDER CSV';
+        badge.style.background  = isWinSec ? 'rgba(0,188,102,0.15)' : 'rgba(255,215,0,0.15)';
+        badge.style.borderColor = isWinSec ? '#00bc66' : 'var(--cb-yellow)';
+        badge.style.color       = isWinSec ? '#00bc66' : 'var(--cb-yellow)';
+      }
     }
 
-    // Update hardcoded legend spans to match current source
+    // Render legend from active action categories
     const legendEl = document.getElementById('ptLegendActions');
-    if (legendEl && isWinSec) {
-      legendEl.innerHTML = PT_ACTION_CATS_WINSEC.map(c =>
-        `<span class="pt-legend-item" style="color:${c.color}">● ${c.label}</span>`
-      ).join('');
-    } else if (legendEl) {
-      legendEl.innerHTML = PT_ACTION_CATS_DEFENDER.map(c =>
+    if (legendEl) {
+      legendEl.innerHTML = PT_ACTION_CATS.map(c =>
         `<span class="pt-legend-item" style="color:${c.color}">● ${c.label}</span>`
       ).join('');
     }
@@ -13301,12 +13435,52 @@ const TECHNIQUE_PROFILES = {
 </script>
 <!-- module: defender -->
 <script>
-// modules/defender.js — Microsoft Defender for Endpoint module
-// Loaded only in defender-enabled variants.
-// Defender detection (ptHasDefenderCols) lives in shared/datasource.js for now.
-// Defender-specific KQL query building and overview cards will migrate here over time.
+// modules/defender.js — Microsoft Defender for Endpoint
+// Registers with Sift plugin system. References shared functions (loaded before modules).
 
 (function() {
+  'use strict';
+
+  Sift.register({
+    name: 'defender',
+
+    detect: function() {
+      return (typeof ptHasDefenderCols === 'function') ? ptHasDefenderCols() : false;
+    },
+
+    badge: {
+      text: 'Defender', bg: 'rgba(0,120,212,0.15)',
+      border: '1px solid #0078d4', color: '#0078d4',
+    },
+
+    columns: {
+      ts: 'Timestamp', device: 'DeviceName', user: 'AccountName',
+      action: 'ActionType', fileName: 'FileName', cmdline: 'ProcessCommandLine',
+      initFile: 'InitiatingProcessFileName', initCmd: 'InitiatingProcessCommandLine',
+      remoteIp: 'RemoteIP', remoteUrl: 'RemoteUrl', remotePort: 'RemotePort',
+      regKey: 'RegistryKey', regVal: 'RegistryValueName', regData: 'RegistryValueData',
+      sha256: 'SHA256', sha1: 'SHA1', md5: 'MD5',
+      integrity: 'ProcessIntegrityLevel', filePath: 'FolderPath',
+    },
+
+    features: [
+      'overview', 'timeline', 'bytes',
+      'process-tree', 'network-map', 'script-decoder', 'query-builder',
+    ],
+
+    get actionCategories() {
+      return (typeof PT_ACTION_CATS_DEFENDER !== 'undefined') ? PT_ACTION_CATS_DEFENDER : [];
+    },
+
+    queryLabel: 'Defender KQL',
+    buildQuery: function(col, val) {
+      return (typeof buildDefenderQuery === 'function') ? buildDefenderQuery(col, val) : null;
+    },
+    buildQueryMulti: function(conditions, logic) {
+      return (typeof buildDefenderQueryMulti === 'function') ? buildDefenderQueryMulti(conditions, logic) : null;
+    },
+  });
+
   window.SIFT_MODULE_DEFENDER = true;
 })();
 

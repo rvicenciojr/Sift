@@ -1,8 +1,51 @@
-// modules/chronicle.js — Google Chronicle / UDM module
-// Loaded only in chronicle-enabled variants.
-// Chronicle detection (isChronicleData) lives in shared/datasource.js for now.
-// Chronicle-specific overview cards and query syntax will migrate here over time.
+// modules/chronicle.js — Google Chronicle / UDM
+// Registers with Sift plugin system. References shared functions (loaded before modules).
 
 (function() {
+  'use strict';
+
+  Sift.register({
+    name: 'chronicle',
+
+    detect: function(headers) {
+      // Chronicle detection runs first — if it returns true, isChronicleData is set
+      return (typeof detectChronicleData === 'function') ? detectChronicleData(headers) : false;
+    },
+
+    badge: {
+      text: 'Chronicle', bg: 'rgba(66,133,244,0.15)',
+      border: '1px solid #4285f4', color: '#4285f4',
+    },
+
+    columns: {
+      ts:         'metadata.event_timestamp',
+      device:     'principal.hostname',
+      user:       'principal.user.userid',
+      action:     'metadata.event_type',
+      cmdline:    'principal.process.command_line',
+      remoteIp:   'target.ip',
+      remotePort: 'target.port',
+      sha256:     'principal.process.file.sha256',
+      severity:   'security_result.severity',
+    },
+
+    features: [
+      'overview', 'timeline', 'bytes',
+      'process-tree', 'network-map', 'script-decoder', 'query-builder',
+    ],
+
+    get actionCategories() {
+      return (typeof PT_ACTION_CATS_DEFENDER !== 'undefined') ? PT_ACTION_CATS_DEFENDER : [];
+    },
+
+    queryLabel: 'Chronicle UDM',
+    buildQuery: function(col, val) {
+      return (typeof buildChronicleQuery === 'function') ? buildChronicleQuery(col, val) : null;
+    },
+    buildQueryMulti: function(conditions, logic) {
+      return (typeof buildChronicleQueryMulti === 'function') ? buildChronicleQueryMulti(conditions, logic) : null;
+    },
+  });
+
   window.SIFT_MODULE_CHRONICLE = true;
 })();
