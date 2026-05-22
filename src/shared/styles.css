@@ -1948,6 +1948,44 @@
     line-height: 1.55;
   }
 
+  /* ── Overview drag-and-resize grid ──────────────────────────────────────── */
+  .ov-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 0;
+  }
+
+  /* Card sizes — cycle with the resize button */
+  .ov-grid .ov-card.ov-size-compact { flex: 0 1 calc(25% - 9px);  min-width: 180px; }
+  .ov-grid .ov-card.ov-size-normal  { flex: 1 1 calc(33% - 8px);  min-width: 240px; }
+  .ov-grid .ov-card.ov-size-wide    { flex: 2 1 calc(50% - 6px);  min-width: 360px; }
+  .ov-grid .ov-card.ov-size-full    { flex: 1 0 100%; }
+
+  /* Wide / full cards — let their inner lists display horizontally */
+  .ov-grid .ov-card.ov-size-wide .ov-card-list,
+  .ov-grid .ov-card.ov-size-full .ov-card-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 24px;
+    column-count: unset;
+  }
+
+  /* Drag state */
+  .ov-grid .ov-card[draggable="true"] { cursor: default; }
+  .ov-grid .ov-card[draggable="true"]:hover { box-shadow: 0 0 0 1px rgba(255,215,0,0.2); }
+  .ov-grid .ov-card.ov-dragging { opacity: 0.4; }
+  .ov-drop-indicator {
+    width: 3px;
+    background: var(--cb-yellow);
+    border-radius: 2px;
+    align-self: stretch;
+    flex-shrink: 0;
+    min-height: 40px;
+    pointer-events: none;
+  }
+
   /* ── Overview Dashboard ── */
   #overviewPanel {
     background: var(--cb-black);

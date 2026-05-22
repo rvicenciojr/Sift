@@ -247,11 +247,9 @@ T1003.001 LSASS Dump · T1003.002 SAM Dump · T1003.003 NTDS Dump · T1003.006 D
 
 Click **＋ Build custom profile…** at the bottom of the Investigating dropdown to open the profile builder:
 
-![Custom profile builder — field picker](screenshots/investigating-dropdown.png)
-
 **Standard Cards** — choose which overview cards to show and in what order. Cards marked `P1–P4` appear in the primary top row; `S1+` appear in secondary rows below.
 
-**Column Cards** — pin any column from your loaded file as a frequency card. All columns from your CSV are displayed as a scrollable checklist. Click to select/deselect. Selected columns appear as overview cards showing top values with click-to-filter.
+**Column Cards** — pin any column from your loaded file as a frequency card. All columns from your CSV are displayed as a scrollable checklist — click to select/deselect. Selected columns appear as overview cards showing top values with click-to-filter.
 
 **Save** persists the profile to browser localStorage — it reappears at the top of the Investigating dropdown. **Apply** uses it for this session only.
 
@@ -260,6 +258,23 @@ When a custom profile is active, the overview shows **only** the cards you selec
 ### Custom Field Cards
 
 The **＋ Field** button in the overview header lets you pin any column as a frequency card without building a full custom profile. Cards show top 25 values with click-to-filter. Dismiss with × to remove.
+
+### Drag to Reorder & Resize Cards
+
+Every overview card has two controls in its title bar:
+
+**⠿ Drag handle** — grab and drag any card to a new position. A yellow indicator bar shows the drop target. The new order is preserved for the session and survives profile switches.
+
+**⊡ Resize button** — click to cycle through four widths:
+
+| Icon | Size | Width |
+|------|------|-------|
+| ⊡ | Normal | ~33% — default |
+| ⊟ | Wide | ~50% — inner lists display horizontally |
+| ⊠ | Full | 100% — spans the entire panel |
+| ⊞ | Compact | ~25% — small summary cards |
+
+Cards wrap automatically to the next row as you resize them.
 
 ### Windows Security specific cards
 
@@ -379,7 +394,7 @@ Floating draggable panel. Right-click any value → "Add to Query Builder" to ac
 
 ![Table view](screenshots/table.png)
 
-The main data grid — sortable columns, row-level highlights, filter controls in the bar above. Pagination and row count at the bottom right with an Export button.
+The main data grid — sortable columns, row-level highlights, filter controls in the bar above. The bottom bar always shows row count and Export regardless of dataset size. Pagination navigation only appears when data spans multiple pages.
 
 ### Cell Selection & Copy
 

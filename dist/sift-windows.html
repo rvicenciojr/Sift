@@ -1961,6 +1961,44 @@ var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":tr
     line-height: 1.55;
   }
 
+  /* ── Overview drag-and-resize grid ──────────────────────────────────────── */
+  .ov-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 12px;
+    align-items: flex-start;
+    padding: 0;
+  }
+
+  /* Card sizes — cycle with the resize button */
+  .ov-grid .ov-card.ov-size-compact { flex: 0 1 calc(25% - 9px);  min-width: 180px; }
+  .ov-grid .ov-card.ov-size-normal  { flex: 1 1 calc(33% - 8px);  min-width: 240px; }
+  .ov-grid .ov-card.ov-size-wide    { flex: 2 1 calc(50% - 6px);  min-width: 360px; }
+  .ov-grid .ov-card.ov-size-full    { flex: 1 0 100%; }
+
+  /* Wide / full cards — let their inner lists display horizontally */
+  .ov-grid .ov-card.ov-size-wide .ov-card-list,
+  .ov-grid .ov-card.ov-size-full .ov-card-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px 24px;
+    column-count: unset;
+  }
+
+  /* Drag state */
+  .ov-grid .ov-card[draggable="true"] { cursor: default; }
+  .ov-grid .ov-card[draggable="true"]:hover { box-shadow: 0 0 0 1px rgba(255,215,0,0.2); }
+  .ov-grid .ov-card.ov-dragging { opacity: 0.4; }
+  .ov-drop-indicator {
+    width: 3px;
+    background: var(--cb-yellow);
+    border-radius: 2px;
+    align-self: stretch;
+    flex-shrink: 0;
+    min-height: 40px;
+    pointer-events: none;
+  }
+
   /* ── Overview Dashboard ── */
   #overviewPanel {
     background: var(--cb-black);
@@ -6429,19 +6467,22 @@ ${evtLine}    \$e.${udm} = "${v}"
     // Pagination bar
     const pgBar = document.getElementById('paginationBar');
     const tp = totalPages();
+    // Always show the bar when data is loaded — Export + row count are always useful
+    pgBar.classList.add('visible');
+    const pgTopRow = pgBar.querySelector('.pg-row-top');
     if (tp > 1) {
-      pgBar.classList.add('visible');
+      if (pgTopRow) pgTopRow.style.display = '';
       document.getElementById('pgFirst').disabled = currentPage <= 1;
       document.getElementById('pgPrev').disabled  = currentPage <= 1;
       document.getElementById('pgNext').disabled  = currentPage >= tp;
       document.getElementById('pgLast').disabled  = currentPage >= tp;
       document.getElementById('pgInfo').textContent = `Page ${currentPage} of ${tp}`;
       document.getElementById('pgJump').value = '';
-      document.documentElement.style.setProperty('--pg-bar-height', pgBar.offsetHeight + 'px');
     } else {
-      pgBar.classList.remove('visible');
-      document.documentElement.style.setProperty('--pg-bar-height', '0px');
+      // Hide navigation controls but keep the bar visible for Export + row count
+      if (pgTopRow) pgTopRow.style.display = 'none';
     }
+    document.documentElement.style.setProperty('--pg-bar-height', pgBar.offsetHeight + 'px');
 
     scheduleChartRender();
   }
@@ -11805,6 +11846,9 @@ const TECHNIQUE_PROFILES = {
   var _ovRenderTimer   = null;
   var _ovProfile       = null; // null = default | tactic name | technique ID
   var _ovCustomActive  = null; // active custom profile { name, cards, customFields } | null
+  var _ovCardSizes     = {};   // { cardKey: 'compact'|'normal'|'wide'|'full' }
+  var _ovCardOrder     = [];   // [cardKey, ...] — current drag order, empty = default
+  var _ovDragKey       = null; // key of card being dragged
 
   // ── All standard card definitions for the custom profile builder ──────────────
   var CARD_DEFS = [
@@ -11915,7 +11959,7 @@ const TECHNIQUE_PROFILES = {
     _ovHoveredList = null; _ovHoveredRegion = null;
   }
 
-  function resetOvProfile() { _ovProfile = null; } // _ovCustomActive persists across tab switches — it's a view preference
+  function resetOvProfile() { _ovProfile = null; _ovCardSizes = {}; _ovCardOrder = []; }
 
   function _sortIndicatorsByProfile(indicators) {
     if (!_ovProfile || !indicators.length) return indicators;
@@ -12322,23 +12366,111 @@ const TECHNIQUE_PROFILES = {
     const primary   = (profileDef.primary   || []).filter(k => cards[k]);
     const secondary = (profileDef.secondary || []).filter(k => cards[k]);
     const used      = new Set([...primary, ...secondary]);
-    // Only append remaining cards when NOT in a custom profile — custom profiles show exactly what was selected
     const remaining = _ovCustomActive ? [] : Object.keys(cards).filter(k => !used.has(k));
+    const ordered   = [...primary, ...secondary, ...remaining];
 
-    // Primary row
-    if (primary.length) {
-      const row = document.createElement('div'); row.className = 'ov-row';
-      primary.forEach(k => row.appendChild(cards[k]));
-      panel.appendChild(row);
+    // Apply saved card order if any
+    let finalOrder = ordered;
+    if (_ovCardOrder.length) {
+      const orderSet = new Set(_ovCardOrder);
+      const extra = ordered.filter(k => !orderSet.has(k));
+      finalOrder = [..._ovCardOrder.filter(k => cards[k]), ...extra];
     }
 
-    // Secondary + remaining, 4 per row
-    const rest = [...secondary, ...remaining];
-    for (let i = 0; i < rest.length; i += 4) {
-      const row = document.createElement('div'); row.className = 'ov-row';
-      rest.slice(i, i + 4).forEach(k => row.appendChild(cards[k]));
-      if (row.children.length) panel.appendChild(row);
-    }
+    // ── Single flex-wrap grid — supports drag reorder and resize ──────────────
+    const grid = document.createElement('div'); grid.className = 'ov-grid';
+
+    finalOrder.forEach(key => {
+      const card = cards[key];
+      if (!card) return;
+
+      // Set size class
+      const size = _ovCardSizes[key] || 'normal';
+      card.classList.remove('ov-size-compact','ov-size-normal','ov-size-wide','ov-size-full');
+      card.classList.add('ov-size-' + size);
+      card.dataset.cardKey = key;
+      card.setAttribute('draggable', 'true');
+
+      // Add drag handle and resize button to card title bar if not already there
+      _addCardControls(card, key);
+
+      // Drag events
+      card.addEventListener('dragstart', e => {
+        _ovDragKey = key;
+        e.dataTransfer.effectAllowed = 'move';
+        setTimeout(() => card.style.opacity = '0.4', 0);
+      });
+      card.addEventListener('dragend', () => {
+        card.style.opacity = '';
+        grid.querySelectorAll('.ov-drop-indicator').forEach(el => el.remove());
+        _ovDragKey = null;
+      });
+      card.addEventListener('dragover', e => {
+        e.preventDefault();
+        if (!_ovDragKey || _ovDragKey === key) return;
+        grid.querySelectorAll('.ov-drop-indicator').forEach(el => el.remove());
+        const rect = card.getBoundingClientRect();
+        const before = e.clientX < rect.left + rect.width / 2;
+        const indicator = document.createElement('div'); indicator.className = 'ov-drop-indicator';
+        indicator.style.cssText = 'width:3px;background:var(--cb-yellow);border-radius:2px;align-self:stretch;flex-shrink:0;min-height:40px';
+        if (before) grid.insertBefore(indicator, card);
+        else card.after(indicator);
+      });
+      card.addEventListener('drop', e => {
+        e.preventDefault();
+        if (!_ovDragKey || _ovDragKey === key) return;
+        const rect = card.getBoundingClientRect();
+        const before = e.clientX < rect.left + rect.width / 2;
+        // Build new order
+        const cur = [...grid.querySelectorAll('[data-card-key]')].map(el => el.dataset.cardKey).filter(k => k !== _ovDragKey);
+        const targetIdx = cur.indexOf(key);
+        cur.splice(before ? targetIdx : targetIdx + 1, 0, _ovDragKey);
+        _ovCardOrder = cur;
+        scheduleOverviewRender();
+      });
+
+      grid.appendChild(card);
+    });
+
+    panel.appendChild(grid);
+  }
+
+  const _SIZE_CYCLE = ['normal','wide','full','compact'];
+
+  function _addCardControls(card, key) {
+    const title = card.querySelector('.ov-card-title');
+    if (!title || title.querySelector('.ov-card-drag-handle')) return;
+
+    // Drag handle
+    const handle = document.createElement('span'); handle.className = 'ov-card-drag-handle';
+    handle.textContent = '⠿'; handle.title = 'Drag to reorder';
+    handle.style.cssText = 'cursor:grab;color:var(--cb-muted);font-size:14px;margin-right:6px;flex-shrink:0;user-select:none;opacity:0.5;transition:opacity .15s';
+    handle.onmouseover = () => handle.style.opacity = '1';
+    handle.onmouseout  = () => handle.style.opacity = '0.5';
+    title.insertBefore(handle, title.firstChild);
+
+    // Resize button — cycles through sizes
+    const resizeBtn = document.createElement('span'); resizeBtn.className = 'ov-card-resize-btn';
+    resizeBtn.title = 'Resize card';
+    resizeBtn.style.cssText = 'cursor:pointer;color:var(--cb-muted);font-size:12px;margin-left:6px;flex-shrink:0;opacity:0.5;transition:opacity .15s;padding:0 2px';
+    resizeBtn.onmouseover = () => resizeBtn.style.opacity = '1';
+    resizeBtn.onmouseout  = () => resizeBtn.style.opacity = '0.5';
+    const _updateResizeIcon = () => {
+      const s = _ovCardSizes[key] || 'normal';
+      resizeBtn.textContent = s === 'compact' ? '⊞' : s === 'wide' ? '⊟' : s === 'full' ? '⊠' : '⊡';
+      resizeBtn.title = `Size: ${s} — click to cycle`;
+    };
+    _updateResizeIcon();
+    resizeBtn.onclick = e => {
+      e.stopPropagation();
+      const cur = _ovCardSizes[key] || 'normal';
+      const next = _SIZE_CYCLE[(_SIZE_CYCLE.indexOf(cur) + 1) % _SIZE_CYCLE.length];
+      _ovCardSizes[key] = next;
+      card.classList.remove('ov-size-compact','ov-size-normal','ov-size-wide','ov-size-full');
+      card.classList.add('ov-size-' + next);
+      _updateResizeIcon();
+    };
+    title.appendChild(resizeBtn);
   }
 
   function _addProfileOption(dropdown, id, type, mitreResults, profileBtn) {

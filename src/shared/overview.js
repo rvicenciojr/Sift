@@ -6,6 +6,9 @@
   var _ovRenderTimer   = null;
   var _ovProfile       = null; // null = default | tactic name | technique ID
   var _ovCustomActive  = null; // active custom profile { name, cards, customFields } | null
+  var _ovCardSizes     = {};   // { cardKey: 'compact'|'normal'|'wide'|'full' }
+  var _ovCardOrder     = [];   // [cardKey, ...] — current drag order, empty = default
+  var _ovDragKey       = null; // key of card being dragged
 
   // ── All standard card definitions for the custom profile builder ──────────────
   var CARD_DEFS = [
@@ -116,7 +119,7 @@
     _ovHoveredList = null; _ovHoveredRegion = null;
   }
 
-  function resetOvProfile() { _ovProfile = null; } // _ovCustomActive persists across tab switches — it's a view preference
+  function resetOvProfile() { _ovProfile = null; _ovCardSizes = {}; _ovCardOrder = []; }
 
   function _sortIndicatorsByProfile(indicators) {
     if (!_ovProfile || !indicators.length) return indicators;
@@ -523,23 +526,111 @@
     const primary   = (profileDef.primary   || []).filter(k => cards[k]);
     const secondary = (profileDef.secondary || []).filter(k => cards[k]);
     const used      = new Set([...primary, ...secondary]);
-    // Only append remaining cards when NOT in a custom profile — custom profiles show exactly what was selected
     const remaining = _ovCustomActive ? [] : Object.keys(cards).filter(k => !used.has(k));
+    const ordered   = [...primary, ...secondary, ...remaining];
 
-    // Primary row
-    if (primary.length) {
-      const row = document.createElement('div'); row.className = 'ov-row';
-      primary.forEach(k => row.appendChild(cards[k]));
-      panel.appendChild(row);
+    // Apply saved card order if any
+    let finalOrder = ordered;
+    if (_ovCardOrder.length) {
+      const orderSet = new Set(_ovCardOrder);
+      const extra = ordered.filter(k => !orderSet.has(k));
+      finalOrder = [..._ovCardOrder.filter(k => cards[k]), ...extra];
     }
 
-    // Secondary + remaining, 4 per row
-    const rest = [...secondary, ...remaining];
-    for (let i = 0; i < rest.length; i += 4) {
-      const row = document.createElement('div'); row.className = 'ov-row';
-      rest.slice(i, i + 4).forEach(k => row.appendChild(cards[k]));
-      if (row.children.length) panel.appendChild(row);
-    }
+    // ── Single flex-wrap grid — supports drag reorder and resize ──────────────
+    const grid = document.createElement('div'); grid.className = 'ov-grid';
+
+    finalOrder.forEach(key => {
+      const card = cards[key];
+      if (!card) return;
+
+      // Set size class
+      const size = _ovCardSizes[key] || 'normal';
+      card.classList.remove('ov-size-compact','ov-size-normal','ov-size-wide','ov-size-full');
+      card.classList.add('ov-size-' + size);
+      card.dataset.cardKey = key;
+      card.setAttribute('draggable', 'true');
+
+      // Add drag handle and resize button to card title bar if not already there
+      _addCardControls(card, key);
+
+      // Drag events
+      card.addEventListener('dragstart', e => {
+        _ovDragKey = key;
+        e.dataTransfer.effectAllowed = 'move';
+        setTimeout(() => card.style.opacity = '0.4', 0);
+      });
+      card.addEventListener('dragend', () => {
+        card.style.opacity = '';
+        grid.querySelectorAll('.ov-drop-indicator').forEach(el => el.remove());
+        _ovDragKey = null;
+      });
+      card.addEventListener('dragover', e => {
+        e.preventDefault();
+        if (!_ovDragKey || _ovDragKey === key) return;
+        grid.querySelectorAll('.ov-drop-indicator').forEach(el => el.remove());
+        const rect = card.getBoundingClientRect();
+        const before = e.clientX < rect.left + rect.width / 2;
+        const indicator = document.createElement('div'); indicator.className = 'ov-drop-indicator';
+        indicator.style.cssText = 'width:3px;background:var(--cb-yellow);border-radius:2px;align-self:stretch;flex-shrink:0;min-height:40px';
+        if (before) grid.insertBefore(indicator, card);
+        else card.after(indicator);
+      });
+      card.addEventListener('drop', e => {
+        e.preventDefault();
+        if (!_ovDragKey || _ovDragKey === key) return;
+        const rect = card.getBoundingClientRect();
+        const before = e.clientX < rect.left + rect.width / 2;
+        // Build new order
+        const cur = [...grid.querySelectorAll('[data-card-key]')].map(el => el.dataset.cardKey).filter(k => k !== _ovDragKey);
+        const targetIdx = cur.indexOf(key);
+        cur.splice(before ? targetIdx : targetIdx + 1, 0, _ovDragKey);
+        _ovCardOrder = cur;
+        scheduleOverviewRender();
+      });
+
+      grid.appendChild(card);
+    });
+
+    panel.appendChild(grid);
+  }
+
+  const _SIZE_CYCLE = ['normal','wide','full','compact'];
+
+  function _addCardControls(card, key) {
+    const title = card.querySelector('.ov-card-title');
+    if (!title || title.querySelector('.ov-card-drag-handle')) return;
+
+    // Drag handle
+    const handle = document.createElement('span'); handle.className = 'ov-card-drag-handle';
+    handle.textContent = '⠿'; handle.title = 'Drag to reorder';
+    handle.style.cssText = 'cursor:grab;color:var(--cb-muted);font-size:14px;margin-right:6px;flex-shrink:0;user-select:none;opacity:0.5;transition:opacity .15s';
+    handle.onmouseover = () => handle.style.opacity = '1';
+    handle.onmouseout  = () => handle.style.opacity = '0.5';
+    title.insertBefore(handle, title.firstChild);
+
+    // Resize button — cycles through sizes
+    const resizeBtn = document.createElement('span'); resizeBtn.className = 'ov-card-resize-btn';
+    resizeBtn.title = 'Resize card';
+    resizeBtn.style.cssText = 'cursor:pointer;color:var(--cb-muted);font-size:12px;margin-left:6px;flex-shrink:0;opacity:0.5;transition:opacity .15s;padding:0 2px';
+    resizeBtn.onmouseover = () => resizeBtn.style.opacity = '1';
+    resizeBtn.onmouseout  = () => resizeBtn.style.opacity = '0.5';
+    const _updateResizeIcon = () => {
+      const s = _ovCardSizes[key] || 'normal';
+      resizeBtn.textContent = s === 'compact' ? '⊞' : s === 'wide' ? '⊟' : s === 'full' ? '⊠' : '⊡';
+      resizeBtn.title = `Size: ${s} — click to cycle`;
+    };
+    _updateResizeIcon();
+    resizeBtn.onclick = e => {
+      e.stopPropagation();
+      const cur = _ovCardSizes[key] || 'normal';
+      const next = _SIZE_CYCLE[(_SIZE_CYCLE.indexOf(cur) + 1) % _SIZE_CYCLE.length];
+      _ovCardSizes[key] = next;
+      card.classList.remove('ov-size-compact','ov-size-normal','ov-size-wide','ov-size-full');
+      card.classList.add('ov-size-' + next);
+      _updateResizeIcon();
+    };
+    title.appendChild(resizeBtn);
   }
 
   function _addProfileOption(dropdown, id, type, mitreResults, profileBtn) {

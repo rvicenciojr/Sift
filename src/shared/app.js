@@ -1578,19 +1578,22 @@
     // Pagination bar
     const pgBar = document.getElementById('paginationBar');
     const tp = totalPages();
+    // Always show the bar when data is loaded — Export + row count are always useful
+    pgBar.classList.add('visible');
+    const pgTopRow = pgBar.querySelector('.pg-row-top');
     if (tp > 1) {
-      pgBar.classList.add('visible');
+      if (pgTopRow) pgTopRow.style.display = '';
       document.getElementById('pgFirst').disabled = currentPage <= 1;
       document.getElementById('pgPrev').disabled  = currentPage <= 1;
       document.getElementById('pgNext').disabled  = currentPage >= tp;
       document.getElementById('pgLast').disabled  = currentPage >= tp;
       document.getElementById('pgInfo').textContent = `Page ${currentPage} of ${tp}`;
       document.getElementById('pgJump').value = '';
-      document.documentElement.style.setProperty('--pg-bar-height', pgBar.offsetHeight + 'px');
     } else {
-      pgBar.classList.remove('visible');
-      document.documentElement.style.setProperty('--pg-bar-height', '0px');
+      // Hide navigation controls but keep the bar visible for Export + row count
+      if (pgTopRow) pgTopRow.style.display = 'none';
     }
+    document.documentElement.style.setProperty('--pg-bar-height', pgBar.offsetHeight + 'px');
 
     scheduleChartRender();
   }
