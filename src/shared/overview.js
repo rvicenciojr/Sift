@@ -218,7 +218,8 @@
 
     _ovWorker.postMessage({ cols, mitreCols, ptColMap, isChronicleData,
       isWindowsSecLog: (typeof isWindowsSecurityLog !== 'undefined' && isWindowsSecurityLog),
-      severityColName, activeProfile: _ovProfile || '' });
+      severityColName, activeProfile: _ovProfile || '',
+      buildFeatures: (typeof SIFT_FEATURES !== 'undefined') ? SIFT_FEATURES : {} });
   }
 
   // ── Render: build DOM from worker data ───────────────────────────────────────
@@ -267,7 +268,8 @@
     viewTableBtn.title = 'Switch to table view with current filters';
     viewTableBtn.onclick = () => toggleOverview();
 
-    // ── Investigating: profile selector ──
+    // ── Investigating: profile selector (hidden when MITRE is disabled — profiles are MITRE-based) ──
+    const _mitrEnabledHdr = (typeof SIFT_FEATURES === 'undefined') || SIFT_FEATURES.mitre !== false;
     const profileDef = _ovGetProfileDef();
     const profileWrap = document.createElement('div'); profileWrap.style.cssText = 'position:relative;margin-left:auto';
     const profileBtn  = document.createElement('button'); profileBtn.className = 'ov-profile-btn';
@@ -317,11 +319,33 @@
     // ── Separator then standard profiles ──────────────────────────────────────
     const sep = document.createElement('div'); sep.style.cssText = 'border-top:1px solid var(--cb-border);margin:4px 0'; profileDropdown.appendChild(sep);
 
-    // General
+    // General (default)
     _addProfileOption(profileDropdown, null, 'default', d.mitreResults || {}, profileBtn);
-    const sepT = document.createElement('div'); sepT.style.cssText = 'border-top:1px solid var(--cb-border);margin:4px 0'; profileDropdown.appendChild(sepT);
 
-    // Tactic options
+    // ── General IT profiles — always shown regardless of MITRE setting ─────────
+    const genItSep = document.createElement('div'); genItSep.style.cssText = 'border-top:1px solid var(--cb-border);margin:4px 0'; profileDropdown.appendChild(genItSep);
+    const genItLbl = document.createElement('div'); genItLbl.style.cssText = 'font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--cb-muted);padding:2px 10px 4px'; genItLbl.textContent = 'General IT'; profileDropdown.appendChild(genItLbl);
+    if (typeof GENERAL_PROFILES !== 'undefined') {
+      Object.entries(GENERAL_PROFILES).forEach(([id, def]) => {
+        const opt = document.createElement('div'); opt.className = 'ov-profile-opt';
+        if (_ovProfile === id) opt.classList.add('ov-profile-opt-active');
+        const icon = document.createElement('span'); icon.style.cssText = 'flex-shrink:0;width:16px'; icon.textContent = def.icon || '';
+        const lbl  = document.createElement('span'); lbl.style.cssText = 'flex:1;font-size:12px'; lbl.textContent = def.label;
+        opt.appendChild(icon); opt.appendChild(lbl);
+        opt.title = def.hint || '';
+        opt.onclick = () => {
+          _ovProfile = id; _ovCustomActive = null;
+          profileDropdown.style.display = 'none';
+          profileBtn.innerHTML = `${def.icon} <span>Investigating: <strong>${def.label}</strong></span> ▾`;
+          scheduleOverviewRender();
+        };
+        profileDropdown.appendChild(opt);
+      });
+    }
+
+    // ── MITRE tactic / technique profiles — only when MITRE is enabled ─────────
+    if (_mitrEnabledHdr) {
+    const sepT = document.createElement('div'); sepT.style.cssText = 'border-top:1px solid var(--cb-border);margin:4px 0'; profileDropdown.appendChild(sepT);
     const tacticLbl = document.createElement('div'); tacticLbl.style.cssText = 'font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--cb-muted);padding:2px 10px 4px'; tacticLbl.textContent = 'Tactic'; profileDropdown.appendChild(tacticLbl);
     const tacticOrder = ['Initial Access','Execution','Persistence','Privilege Escalation','Defense Evasion',
       'Credential Access','Discovery','Lateral Movement','Collection','Command and Control','Exfiltration','Impact'];
@@ -334,6 +358,7 @@
       const techLbl = document.createElement('div'); techLbl.style.cssText = 'font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--cb-muted);padding:2px 10px 4px'; techLbl.textContent = 'Technique Focus'; profileDropdown.appendChild(techLbl);
       techHits.forEach(id => _addProfileOption(profileDropdown, id, 'technique', d.mitreResults || {}, profileBtn));
     }
+    } // end if (_mitrEnabledHdr)
 
     profileBtn.onclick = e => { e.stopPropagation(); profileDropdown.style.display = profileDropdown.style.display === 'none' ? 'block' : 'none'; };
     document.addEventListener('click', function _closeProfile(e) {
@@ -393,8 +418,9 @@
 
     panel.appendChild(hdr);
 
-    // ── ATT&CK row: Coverage + TTP Selector — hidden in custom profile mode ──────
-    if (!_ovCustomActive) {
+    // ── ATT&CK row: Coverage + TTP Selector — hidden in custom profile mode or when mitre disabled ──
+    const _mitrEnabled = (typeof SIFT_FEATURES === 'undefined') || SIFT_FEATURES.mitre !== false;
+    if (!_ovCustomActive && _mitrEnabled) {
       const attackRow = document.createElement('div'); attackRow.className = 'ov-row';
       const coverageCard = buildMitreSummaryCard(d.mitreResults || {});
       coverageCard.style.flex = '3';
@@ -462,8 +488,8 @@
     const chainCard = d.attackChain ? buildAttackChainCard(d.attackChain, s) : null;
     if (chainCard) panel.appendChild(chainCard);
 
-    // Notable indicators — suppressed in custom profiles, otherwise always shown
-    if (!_ovCustomActive) {
+    // Notable indicators — suppressed in custom profiles or when mitre disabled
+    if (!_ovCustomActive && _mitrEnabled) {
       panel.appendChild(buildIndicatorsCard(_sortIndicatorsByProfile(d.indicators || []), s));
     }
 
@@ -483,6 +509,9 @@
       return { label: _ovCustomActive.name, icon: '⭐', hint: 'Custom profile', primary: cards.slice(0, 4), secondary: cards.slice(4) };
     }
     if (!_ovProfile) return (typeof TACTIC_PROFILES !== 'undefined' && TACTIC_PROFILES['default']) || { label:'General', icon:'🔍', hint:'', primary:['time','scope','activity','severity'], secondary:['hostsAccounts','process','procPairs','network','registry','hashes'] };
+    // General IT profiles (non-MITRE)
+    if (typeof GENERAL_PROFILES !== 'undefined' && GENERAL_PROFILES[_ovProfile])
+      return GENERAL_PROFILES[_ovProfile];
     if (typeof TECHNIQUE_PROFILES !== 'undefined' && TECHNIQUE_PROFILES[_ovProfile])
       return TECHNIQUE_PROFILES[_ovProfile];
     if (typeof TACTIC_PROFILES !== 'undefined' && TACTIC_PROFILES[_ovProfile])

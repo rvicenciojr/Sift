@@ -2335,7 +2335,8 @@
       items.push({ type: 'item', icon: '📝', text: 'Copy as YARA-L rule', fn: function() { copyYaraL(_ctxCol, _ctxVal); } });
     }
 
-    if (typeof _isQueryableIoc === 'function' && _isQueryableIoc(col, val)) {
+    var _qbEnabled = (typeof SIFT_FEATURES === 'undefined') || SIFT_FEATURES['query-builder'] !== false;
+    if (_qbEnabled && typeof _isQueryableIoc === 'function' && _isQueryableIoc(col, val)) {
       var _qItems = ctxQueryItems(col, val);
       if (_qItems.length) { items.push({ type: 'sep' }); _qItems.forEach(function(q) { items.push(q); }); }
       items.push({ type: 'item', icon: '➕', text: 'Add to query builder', fn: function() {

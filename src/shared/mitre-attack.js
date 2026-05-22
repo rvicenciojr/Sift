@@ -830,6 +830,40 @@ const MITRE_DETECTIONS = {
 // secondary = second row
 // remaining cards always appended after
 
+// ── General IT profiles — non-MITRE, useful for any structured log data ──────
+const GENERAL_PROFILES = {
+  'it-network': {
+    label: 'Network', icon: '🌐',
+    hint: 'Top IPs, ports, connection patterns — useful for firewall, proxy, or DHCP logs',
+    primary:   ['network', 'time', 'hostsAccounts'],
+    secondary: ['activity', 'scope'],
+  },
+  'it-user': {
+    label: 'User Activity', icon: '👤',
+    hint: 'Who accessed what and when — useful for audit, compliance, or HR investigations',
+    primary:   ['hostsAccounts', 'time', 'activity'],
+    secondary: ['network', 'scope'],
+  },
+  'it-files': {
+    label: 'File Operations', icon: '📁',
+    hint: 'Files created, modified, deleted — useful for data governance or storage logs',
+    primary:   ['process', 'hostsAccounts', 'time'],
+    secondary: ['hashes', 'activity', 'scope'],
+  },
+  'it-changes': {
+    label: 'System Changes', icon: '⚙️',
+    hint: 'Registry, config, and service modifications — useful for change management logs',
+    primary:   ['registry', 'activity', 'time'],
+    secondary: ['hostsAccounts', 'process', 'scope'],
+  },
+  'it-performance': {
+    label: 'Performance', icon: '📊',
+    hint: 'Process patterns, activity volume, timing — useful for monitoring and ops logs',
+    primary:   ['process', 'activity', 'time'],
+    secondary: ['hostsAccounts', 'scope', 'network'],
+  },
+};
+
 const TACTIC_PROFILES = {
   'default': {
     label: 'General', icon: '🔍',

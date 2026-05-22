@@ -14,10 +14,15 @@
     const amsiB = document.getElementById('amsiBtn');
     const isWinSec = typeof isWindowsSecurityLog !== 'undefined' && isWindowsSecurityLog;
 
+    // Check build-level feature flags (SIFT_FEATURES) — set to false to permanently disable
+    const buildTreeOk    = (typeof SIFT_FEATURES === 'undefined') || SIFT_FEATURES['process-tree']  !== false;
+    const buildNetworkOk = (typeof SIFT_FEATURES === 'undefined') || SIFT_FEATURES['network-map']   !== false;
+    const buildScriptOk  = (typeof SIFT_FEATURES === 'undefined') || SIFT_FEATURES['script-decoder'] !== false;
+
     // Use Sift module feature flags if available, otherwise fall back to legacy logic
-    const moduleNetworkOk = (typeof Sift === 'undefined') ? true : Sift.hasFeature('network-map');
-    const moduleTreeOk    = (typeof Sift === 'undefined') ? true : Sift.hasFeature('process-tree');
-    const moduleScriptOk  = (typeof Sift === 'undefined') ? true : Sift.hasFeature('script-decoder');
+    const moduleNetworkOk = buildNetworkOk && ((typeof Sift === 'undefined') ? true : Sift.hasFeature('network-map'));
+    const moduleTreeOk    = buildTreeOk    && ((typeof Sift === 'undefined') ? true : Sift.hasFeature('process-tree'));
+    const moduleScriptOk  = buildScriptOk  && ((typeof Sift === 'undefined') ? true : Sift.hasFeature('script-decoder'));
 
     const hasTree = moduleTreeOk && (isWinSec
       ? allRows.some(r => (ptGet(r,'action')||'').trim() === '4688' && (ptGet(r,'fileName') || ptGet(r,'initFile')))

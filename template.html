@@ -69,7 +69,7 @@
   <div class="atb-divider"></div>
   <button id="timelineToggle" class="atb-btn" onclick="toggleTimeline()" title="Event timeline & time range filter">📊 Timeline</button>
   <button id="bytesToggle" class="atb-btn" onclick="toggleBytesChart()" title="Bytes in/out chart">📈 Bytes</button>
-  <button class="atb-btn" onclick="qbToggle()" title="Build multi-IOC Chronicle / Defender queries">🔨 Query Builder</button>
+  <button class="atb-btn" id="qbBtn" onclick="qbToggle()" title="Build multi-IOC Chronicle / Defender queries">🔨 Query Builder</button>
   <div class="atb-divider" id="atbDivider1"></div>
   <button id="procTreeBtn" class="atb-btn" style="background:rgba(255,215,0,0.1);border-color:var(--cb-yellow);color:var(--cb-yellow);font-weight:700;display:none" onclick="openProcTree()">🌲 Process Tree</button>
   <button id="networkMapBtn" class="atb-btn" style="background:rgba(45,212,191,0.1);border:1px solid #2dd4bf;color:#2dd4bf;font-weight:700;display:none" onclick="openNetworkMap()">🗺 Network Map</button>
@@ -798,7 +798,8 @@ self.onmessage = function (e) {
 // Posts:    { type:'progress', msg } | { type:'done', data }
 
 self.onmessage = function(e) {
-  const { cols, mitreCols, ptColMap, isChronicleData, isWindowsSecLog, severityColName, activeProfile } = e.data;
+  const { cols, mitreCols, ptColMap, isChronicleData, isWindowsSecLog, severityColName, activeProfile, buildFeatures } = e.data;
+  const mitrEnabled = !buildFeatures || buildFeatures.mitre !== false;
   const mCols = mitreCols || cols;
   const n = (cols.ts || cols.action || cols.fileName || []).length;
 
@@ -809,8 +810,9 @@ self.onmessage = function(e) {
   const data = computeCards(cols, s, n);
 
   self.postMessage({ type: 'progress', msg: 'Running indicator checks…' });
-  data.indicators = computeIndicators(cols, s, n);
+  data.indicators = mitrEnabled ? computeIndicators(cols, s, n) : [];
 
+  if (mitrEnabled) {
   self.postMessage({ type: 'progress', msg: 'Running MITRE ATT&CK detections…' });
   // When a profile is active use filtered cols so coverage reflects what's in the filtered data;
   // otherwise use mCols (all rows) so the full picture is always visible on General view
@@ -823,6 +825,7 @@ self.onmessage = function(e) {
     self.postMessage({ type: 'progress', msg: 'Building investigation context…' });
     data.ttpContext = computeTtpContext(cols, s, n, activeProfile);
   }
+  } // end if (mitrEnabled)
 
   // Windows Security Log — specialized analysis
   if (isWindowsSecLog) {

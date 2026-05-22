@@ -102,8 +102,10 @@ def build_variant(variant_dir: Path) -> None:
         html = html.replace('📂 Open CSV</button>', '📂 Open File</button>')
 
     if not features.get('windows'):
-        # Rename Open CSV button label — stays as "Open CSV" which is correct
-        pass  # no further changes needed; windows cards are gated by isWindowsSecurityLog at runtime
+        pass  # windows cards are gated by isWindowsSecurityLog at runtime
+
+    if features.get('query-builder') is False:
+        html = html.replace('id="qbBtn"', 'id="qbBtn" style="display:none"')
 
     # ── Write output ─────────────────────────────────────────────────────────
     DIST.mkdir(exist_ok=True)

@@ -1,0 +1,18 @@
+{
+  "name": "sift-generic",
+  "title": "Sift",
+  "header": "Sift",
+  "description": "Generic CSV data explorer — overview, timeline, search, and query builder",
+  "modules": [],
+  "features": {
+    "chronicle": false,
+    "defender": false,
+    "windows": false,
+    "evtx": false,
+    "mitre": false,
+    "process-tree": false,
+    "network-map": false,
+    "script-decoder": false,
+    "query-builder": false
+  }
+}

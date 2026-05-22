@@ -15,6 +15,7 @@ A browser-based, offline investigation tool for security analysts. Load a log fi
 | File | Use when you have |
 |---|---|
 | `hunt-investigator.html` | Google Chronicle exports **or** Microsoft Defender for Endpoint CSVs (main work file) |
+| `sift-generic.html` | **Any CSV** — no security tooling required, works for IT, networking, ops, audit |
 | `sift-windows.html` | Windows Security Event Log CSVs or `.evtx` files |
 | `sift-defender.html` | Microsoft Defender for Endpoint only |
 | `sift-chronicle.html` | Google Chronicle / UDM only |
@@ -136,9 +137,21 @@ When detected: badge switches to green **Windows Security** · dashboard shows S
 | Service name | `ServiceName` |
 | Service binary | `ServiceFileName` |
 
-### Generic CSV
+### Generic CSV — sift-generic.html
 
-Any CSV works. The tool scans columns and assembles only the cards it has data for. Timeline, filters, highlighting, right-click menu, and query builder all work regardless of source.
+`sift-generic.html` is a lightweight version for anyone who just needs to explore structured data. No security knowledge required. Load any CSV and get:
+
+- **Overview** — frequency timeline, top offenders, hosts, users, activity, network connections, hashes (whatever columns are present)
+- **Timeline** — event distribution over time with drag-to-zoom
+- **Bytes chart** — if your data has traffic volume columns
+- **Filters** — full multi-row filter bar with regex, exact match, column picker
+- **General IT investigation profiles** — reshapes the overview for specific use cases
+
+![Generic overview dashboard](screenshots/generic-overview.png)
+
+MITRE ATT&CK, Process Tree, Network Map, Script Decoder, and Query Builder are not included — the tool stays clean and focused for non-security use cases.
+
+Any CSV works. The tool scans column names and assembles only the cards it has data for.
 
 ---
 
@@ -218,9 +231,25 @@ Shows only tactics and techniques with hits in your data. Click a tactic to expa
 
 ### Investigation Profiles
 
-The **"Investigating: ▾"** dropdown reshapes the dashboard for a specific investigation type.
+The **"Investigating: ▾"** dropdown reshapes the dashboard for a specific investigation type. The dropdown has three sections:
 
-![Investigating dropdown](screenshots/investigating-dropdown.png)
+**Custom Profiles** (top) — any profiles you've saved via the builder appear here for one-click recall.
+
+**General IT** — non-security profiles useful for any structured log data:
+
+![General IT profiles dropdown](screenshots/general-it-dropdown.png)
+
+| Profile | Primary cards | Best for |
+|---------|--------------|----------|
+| 🌐 Network | Network · Timeline · Hosts | Firewall logs, proxy logs, DHCP, DNS |
+| 👤 User Activity | Hosts & Accounts · Timeline · Activity | Audit logs, compliance, HR investigations |
+| 📁 File Operations | Processes · Hosts · Timeline | Storage logs, DLP exports, data governance |
+| ⚙️ System Changes | Registry · Activity · Timeline | Change management logs, config drift |
+| 📊 Performance | Processes · Activity · Timeline | Monitoring exports, ops logs |
+
+**Tactic** *(threat hunting variants only)* — MITRE ATT&CK tactics, with detected technique counts:
+
+![Investigating dropdown — MITRE tactics](screenshots/investigating-dropdown.png)
 
 **Tactic profiles:**
 

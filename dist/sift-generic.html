@@ -6,9 +6,9 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sift - Chronicle Viewer</title>
-<script>/* Sift build: sift-chronicle */
-var SIFT_FEATURES = {"chronicle":true,"defender":false,"windows":false,"evtx":false};
+<title>Sift</title>
+<script>/* Sift build: sift-generic */
+var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":false,"evtx":false,"mitre":false,"process-tree":false,"network-map":false,"script-decoder":false,"query-builder":false};
 </script>
 <style>
   :root {
@@ -3034,7 +3034,7 @@ var SIFT_FEATURES = {"chronicle":true,"defender":false,"windows":false,"evtx":fa
 
 <!-- Header Controls -->
 <header>
-  <h1>Sift - Chronicle Viewer</h1>
+  <h1>Sift</h1>
   <div class="controls">
     <button onclick="document.getElementById('fileInput').click()">📂 Open CSV</button>
     <input type="file" id="fileInput" accept=".csv" multiple onchange="loadFiles(this.files)" style="display:none">
@@ -3072,7 +3072,7 @@ var SIFT_FEATURES = {"chronicle":true,"defender":false,"windows":false,"evtx":fa
   <div class="atb-divider"></div>
   <button id="timelineToggle" class="atb-btn" onclick="toggleTimeline()" title="Event timeline & time range filter">📊 Timeline</button>
   <button id="bytesToggle" class="atb-btn" onclick="toggleBytesChart()" title="Bytes in/out chart">📈 Bytes</button>
-  <button class="atb-btn" id="qbBtn" onclick="qbToggle()" title="Build multi-IOC Chronicle / Defender queries">🔨 Query Builder</button>
+  <button class="atb-btn" id="qbBtn" style="display:none" onclick="qbToggle()" title="Build multi-IOC Chronicle / Defender queries">🔨 Query Builder</button>
   <div class="atb-divider" id="atbDivider1"></div>
   <button id="procTreeBtn" class="atb-btn" style="background:rgba(255,215,0,0.1);border-color:var(--cb-yellow);color:var(--cb-yellow);font-weight:700;display:none" onclick="openProcTree()">🌲 Process Tree</button>
   <button id="networkMapBtn" class="atb-btn" style="background:rgba(45,212,191,0.1);border:1px solid #2dd4bf;color:#2dd4bf;font-weight:700;display:none" onclick="openNetworkMap()">🗺 Network Map</button>
@@ -14396,62 +14396,7 @@ const TECHNIQUE_PROFILES = {
   }
 
 </script>
-<!-- module: chronicle -->
-<script>
-// modules/chronicle.js — Google Chronicle / UDM
-// Registers with Sift plugin system. References shared functions (loaded before modules).
 
-(function() {
-  'use strict';
-
-  Sift.register({
-    name: 'chronicle',
-
-    detect: function(headers) {
-      // isChronicleData is set by detectChronicleData() BEFORE Sift.detect() is invoked,
-      // so we just read the flag here. Calling detectChronicleData() back would recurse.
-      return (typeof isChronicleData !== 'undefined') && isChronicleData;
-    },
-
-    badge: {
-      text: 'Chronicle', bg: 'rgba(66,133,244,0.15)',
-      border: '1px solid #4285f4', color: '#4285f4',
-    },
-
-    columns: {
-      ts:         'metadata.event_timestamp',
-      device:     'principal.hostname',
-      user:       'principal.user.userid',
-      action:     'metadata.event_type',
-      cmdline:    'principal.process.command_line',
-      remoteIp:   'target.ip',
-      remotePort: 'target.port',
-      sha256:     'principal.process.file.sha256',
-      severity:   'security_result.severity',
-    },
-
-    features: [
-      'overview', 'timeline', 'bytes',
-      'process-tree', 'network-map', 'script-decoder', 'query-builder',
-    ],
-
-    get actionCategories() {
-      return (typeof PT_ACTION_CATS_DEFENDER !== 'undefined') ? PT_ACTION_CATS_DEFENDER : [];
-    },
-
-    queryLabel: 'Chronicle UDM',
-    buildQuery: function(col, val) {
-      return (typeof buildChronicleQuery === 'function') ? buildChronicleQuery(col, val) : null;
-    },
-    buildQueryMulti: function(conditions, logic) {
-      return (typeof buildChronicleQueryMulti === 'function') ? buildChronicleQueryMulti(conditions, logic) : null;
-    },
-  });
-
-  window.SIFT_MODULE_CHRONICLE = true;
-})();
-
-</script>
 
 <!-- Overview web worker — runs all computation off the main thread -->
 <script id="overview-worker-src" type="text/js-worker">

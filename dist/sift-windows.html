@@ -3072,7 +3072,7 @@ var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":tr
   <div class="atb-divider"></div>
   <button id="timelineToggle" class="atb-btn" onclick="toggleTimeline()" title="Event timeline & time range filter">📊 Timeline</button>
   <button id="bytesToggle" class="atb-btn" onclick="toggleBytesChart()" title="Bytes in/out chart">📈 Bytes</button>
-  <button class="atb-btn" onclick="qbToggle()" title="Build multi-IOC Chronicle / Defender queries">🔨 Query Builder</button>
+  <button class="atb-btn" id="qbBtn" onclick="qbToggle()" title="Build multi-IOC Chronicle / Defender queries">🔨 Query Builder</button>
   <div class="atb-divider" id="atbDivider1"></div>
   <button id="procTreeBtn" class="atb-btn" style="background:rgba(255,215,0,0.1);border-color:var(--cb-yellow);color:var(--cb-yellow);font-weight:700;display:none" onclick="openProcTree()">🌲 Process Tree</button>
   <button id="networkMapBtn" class="atb-btn" style="background:rgba(45,212,191,0.1);border:1px solid #2dd4bf;color:#2dd4bf;font-weight:700;display:none" onclick="openNetworkMap()">🗺 Network Map</button>
@@ -7183,7 +7183,8 @@ ${evtLine}    \$e.${udm} = "${v}"
       items.push({ type: 'item', icon: '📝', text: 'Copy as YARA-L rule', fn: function() { copyYaraL(_ctxCol, _ctxVal); } });
     }
 
-    if (typeof _isQueryableIoc === 'function' && _isQueryableIoc(col, val)) {
+    var _qbEnabled = (typeof SIFT_FEATURES === 'undefined') || SIFT_FEATURES['query-builder'] !== false;
+    if (_qbEnabled && typeof _isQueryableIoc === 'function' && _isQueryableIoc(col, val)) {
       var _qItems = ctxQueryItems(col, val);
       if (_qItems.length) { items.push({ type: 'sep' }); _qItems.forEach(function(q) { items.push(q); }); }
       items.push({ type: 'item', icon: '➕', text: 'Add to query builder', fn: function() {
@@ -9332,10 +9333,15 @@ ${evtLine}    \$e.${udm} = "${v}"
     const amsiB = document.getElementById('amsiBtn');
     const isWinSec = typeof isWindowsSecurityLog !== 'undefined' && isWindowsSecurityLog;
 
+    // Check build-level feature flags (SIFT_FEATURES) — set to false to permanently disable
+    const buildTreeOk    = (typeof SIFT_FEATURES === 'undefined') || SIFT_FEATURES['process-tree']  !== false;
+    const buildNetworkOk = (typeof SIFT_FEATURES === 'undefined') || SIFT_FEATURES['network-map']   !== false;
+    const buildScriptOk  = (typeof SIFT_FEATURES === 'undefined') || SIFT_FEATURES['script-decoder'] !== false;
+
     // Use Sift module feature flags if available, otherwise fall back to legacy logic
-    const moduleNetworkOk = (typeof Sift === 'undefined') ? true : Sift.hasFeature('network-map');
-    const moduleTreeOk    = (typeof Sift === 'undefined') ? true : Sift.hasFeature('process-tree');
-    const moduleScriptOk  = (typeof Sift === 'undefined') ? true : Sift.hasFeature('script-decoder');
+    const moduleNetworkOk = buildNetworkOk && ((typeof Sift === 'undefined') ? true : Sift.hasFeature('network-map'));
+    const moduleTreeOk    = buildTreeOk    && ((typeof Sift === 'undefined') ? true : Sift.hasFeature('process-tree'));
+    const moduleScriptOk  = buildScriptOk  && ((typeof Sift === 'undefined') ? true : Sift.hasFeature('script-decoder'));
 
     const hasTree = moduleTreeOk && (isWinSec
       ? allRows.some(r => (ptGet(r,'action')||'').trim() === '4688' && (ptGet(r,'fileName') || ptGet(r,'initFile')))
@@ -11247,6 +11253,40 @@ const MITRE_DETECTIONS = {
 // secondary = second row
 // remaining cards always appended after
 
+// ── General IT profiles — non-MITRE, useful for any structured log data ──────
+const GENERAL_PROFILES = {
+  'it-network': {
+    label: 'Network', icon: '🌐',
+    hint: 'Top IPs, ports, connection patterns — useful for firewall, proxy, or DHCP logs',
+    primary:   ['network', 'time', 'hostsAccounts'],
+    secondary: ['activity', 'scope'],
+  },
+  'it-user': {
+    label: 'User Activity', icon: '👤',
+    hint: 'Who accessed what and when — useful for audit, compliance, or HR investigations',
+    primary:   ['hostsAccounts', 'time', 'activity'],
+    secondary: ['network', 'scope'],
+  },
+  'it-files': {
+    label: 'File Operations', icon: '📁',
+    hint: 'Files created, modified, deleted — useful for data governance or storage logs',
+    primary:   ['process', 'hostsAccounts', 'time'],
+    secondary: ['hashes', 'activity', 'scope'],
+  },
+  'it-changes': {
+    label: 'System Changes', icon: '⚙️',
+    hint: 'Registry, config, and service modifications — useful for change management logs',
+    primary:   ['registry', 'activity', 'time'],
+    secondary: ['hostsAccounts', 'process', 'scope'],
+  },
+  'it-performance': {
+    label: 'Performance', icon: '📊',
+    hint: 'Process patterns, activity volume, timing — useful for monitoring and ops logs',
+    primary:   ['process', 'activity', 'time'],
+    secondary: ['hostsAccounts', 'scope', 'network'],
+  },
+};
+
 const TACTIC_PROFILES = {
   'default': {
     label: 'General', icon: '🔍',
@@ -11974,7 +12014,8 @@ const TECHNIQUE_PROFILES = {
 
     _ovWorker.postMessage({ cols, mitreCols, ptColMap, isChronicleData,
       isWindowsSecLog: (typeof isWindowsSecurityLog !== 'undefined' && isWindowsSecurityLog),
-      severityColName, activeProfile: _ovProfile || '' });
+      severityColName, activeProfile: _ovProfile || '',
+      buildFeatures: (typeof SIFT_FEATURES !== 'undefined') ? SIFT_FEATURES : {} });
   }
 
   // ── Render: build DOM from worker data ───────────────────────────────────────
@@ -12023,7 +12064,8 @@ const TECHNIQUE_PROFILES = {
     viewTableBtn.title = 'Switch to table view with current filters';
     viewTableBtn.onclick = () => toggleOverview();
 
-    // ── Investigating: profile selector ──
+    // ── Investigating: profile selector (hidden when MITRE is disabled — profiles are MITRE-based) ──
+    const _mitrEnabledHdr = (typeof SIFT_FEATURES === 'undefined') || SIFT_FEATURES.mitre !== false;
     const profileDef = _ovGetProfileDef();
     const profileWrap = document.createElement('div'); profileWrap.style.cssText = 'position:relative;margin-left:auto';
     const profileBtn  = document.createElement('button'); profileBtn.className = 'ov-profile-btn';
@@ -12073,11 +12115,33 @@ const TECHNIQUE_PROFILES = {
     // ── Separator then standard profiles ──────────────────────────────────────
     const sep = document.createElement('div'); sep.style.cssText = 'border-top:1px solid var(--cb-border);margin:4px 0'; profileDropdown.appendChild(sep);
 
-    // General
+    // General (default)
     _addProfileOption(profileDropdown, null, 'default', d.mitreResults || {}, profileBtn);
-    const sepT = document.createElement('div'); sepT.style.cssText = 'border-top:1px solid var(--cb-border);margin:4px 0'; profileDropdown.appendChild(sepT);
 
-    // Tactic options
+    // ── General IT profiles — always shown regardless of MITRE setting ─────────
+    const genItSep = document.createElement('div'); genItSep.style.cssText = 'border-top:1px solid var(--cb-border);margin:4px 0'; profileDropdown.appendChild(genItSep);
+    const genItLbl = document.createElement('div'); genItLbl.style.cssText = 'font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--cb-muted);padding:2px 10px 4px'; genItLbl.textContent = 'General IT'; profileDropdown.appendChild(genItLbl);
+    if (typeof GENERAL_PROFILES !== 'undefined') {
+      Object.entries(GENERAL_PROFILES).forEach(([id, def]) => {
+        const opt = document.createElement('div'); opt.className = 'ov-profile-opt';
+        if (_ovProfile === id) opt.classList.add('ov-profile-opt-active');
+        const icon = document.createElement('span'); icon.style.cssText = 'flex-shrink:0;width:16px'; icon.textContent = def.icon || '';
+        const lbl  = document.createElement('span'); lbl.style.cssText = 'flex:1;font-size:12px'; lbl.textContent = def.label;
+        opt.appendChild(icon); opt.appendChild(lbl);
+        opt.title = def.hint || '';
+        opt.onclick = () => {
+          _ovProfile = id; _ovCustomActive = null;
+          profileDropdown.style.display = 'none';
+          profileBtn.innerHTML = `${def.icon} <span>Investigating: <strong>${def.label}</strong></span> ▾`;
+          scheduleOverviewRender();
+        };
+        profileDropdown.appendChild(opt);
+      });
+    }
+
+    // ── MITRE tactic / technique profiles — only when MITRE is enabled ─────────
+    if (_mitrEnabledHdr) {
+    const sepT = document.createElement('div'); sepT.style.cssText = 'border-top:1px solid var(--cb-border);margin:4px 0'; profileDropdown.appendChild(sepT);
     const tacticLbl = document.createElement('div'); tacticLbl.style.cssText = 'font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--cb-muted);padding:2px 10px 4px'; tacticLbl.textContent = 'Tactic'; profileDropdown.appendChild(tacticLbl);
     const tacticOrder = ['Initial Access','Execution','Persistence','Privilege Escalation','Defense Evasion',
       'Credential Access','Discovery','Lateral Movement','Collection','Command and Control','Exfiltration','Impact'];
@@ -12090,6 +12154,7 @@ const TECHNIQUE_PROFILES = {
       const techLbl = document.createElement('div'); techLbl.style.cssText = 'font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--cb-muted);padding:2px 10px 4px'; techLbl.textContent = 'Technique Focus'; profileDropdown.appendChild(techLbl);
       techHits.forEach(id => _addProfileOption(profileDropdown, id, 'technique', d.mitreResults || {}, profileBtn));
     }
+    } // end if (_mitrEnabledHdr)
 
     profileBtn.onclick = e => { e.stopPropagation(); profileDropdown.style.display = profileDropdown.style.display === 'none' ? 'block' : 'none'; };
     document.addEventListener('click', function _closeProfile(e) {
@@ -12149,8 +12214,9 @@ const TECHNIQUE_PROFILES = {
 
     panel.appendChild(hdr);
 
-    // ── ATT&CK row: Coverage + TTP Selector — hidden in custom profile mode ──────
-    if (!_ovCustomActive) {
+    // ── ATT&CK row: Coverage + TTP Selector — hidden in custom profile mode or when mitre disabled ──
+    const _mitrEnabled = (typeof SIFT_FEATURES === 'undefined') || SIFT_FEATURES.mitre !== false;
+    if (!_ovCustomActive && _mitrEnabled) {
       const attackRow = document.createElement('div'); attackRow.className = 'ov-row';
       const coverageCard = buildMitreSummaryCard(d.mitreResults || {});
       coverageCard.style.flex = '3';
@@ -12218,8 +12284,8 @@ const TECHNIQUE_PROFILES = {
     const chainCard = d.attackChain ? buildAttackChainCard(d.attackChain, s) : null;
     if (chainCard) panel.appendChild(chainCard);
 
-    // Notable indicators — suppressed in custom profiles, otherwise always shown
-    if (!_ovCustomActive) {
+    // Notable indicators — suppressed in custom profiles or when mitre disabled
+    if (!_ovCustomActive && _mitrEnabled) {
       panel.appendChild(buildIndicatorsCard(_sortIndicatorsByProfile(d.indicators || []), s));
     }
 
@@ -12239,6 +12305,9 @@ const TECHNIQUE_PROFILES = {
       return { label: _ovCustomActive.name, icon: '⭐', hint: 'Custom profile', primary: cards.slice(0, 4), secondary: cards.slice(4) };
     }
     if (!_ovProfile) return (typeof TACTIC_PROFILES !== 'undefined' && TACTIC_PROFILES['default']) || { label:'General', icon:'🔍', hint:'', primary:['time','scope','activity','severity'], secondary:['hostsAccounts','process','procPairs','network','registry','hashes'] };
+    // General IT profiles (non-MITRE)
+    if (typeof GENERAL_PROFILES !== 'undefined' && GENERAL_PROFILES[_ovProfile])
+      return GENERAL_PROFILES[_ovProfile];
     if (typeof TECHNIQUE_PROFILES !== 'undefined' && TECHNIQUE_PROFILES[_ovProfile])
       return TECHNIQUE_PROFILES[_ovProfile];
     if (typeof TACTIC_PROFILES !== 'undefined' && TACTIC_PROFILES[_ovProfile])
@@ -14940,7 +15009,8 @@ const TECHNIQUE_PROFILES = {
 // Posts:    { type:'progress', msg } | { type:'done', data }
 
 self.onmessage = function(e) {
-  const { cols, mitreCols, ptColMap, isChronicleData, isWindowsSecLog, severityColName, activeProfile } = e.data;
+  const { cols, mitreCols, ptColMap, isChronicleData, isWindowsSecLog, severityColName, activeProfile, buildFeatures } = e.data;
+  const mitrEnabled = !buildFeatures || buildFeatures.mitre !== false;
   const mCols = mitreCols || cols;
   const n = (cols.ts || cols.action || cols.fileName || []).length;
 
@@ -14951,8 +15021,9 @@ self.onmessage = function(e) {
   const data = computeCards(cols, s, n);
 
   self.postMessage({ type: 'progress', msg: 'Running indicator checks…' });
-  data.indicators = computeIndicators(cols, s, n);
+  data.indicators = mitrEnabled ? computeIndicators(cols, s, n) : [];
 
+  if (mitrEnabled) {
   self.postMessage({ type: 'progress', msg: 'Running MITRE ATT&CK detections…' });
   // When a profile is active use filtered cols so coverage reflects what's in the filtered data;
   // otherwise use mCols (all rows) so the full picture is always visible on General view
@@ -14965,6 +15036,7 @@ self.onmessage = function(e) {
     self.postMessage({ type: 'progress', msg: 'Building investigation context…' });
     data.ttpContext = computeTtpContext(cols, s, n, activeProfile);
   }
+  } // end if (mitrEnabled)
 
   // Windows Security Log — specialized analysis
   if (isWindowsSecLog) {
