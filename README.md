@@ -12,7 +12,7 @@ A browser-based, offline investigation tool for security analysts. Load a log fi
 
 | File | Use when you have |
 |---|---|
-| `csv-viewer.html` | Google Chronicle exports **or** Microsoft Defender for Endpoint CSVs (your main work file) |
+| `hunt-investigator.html` | Google Chronicle exports **or** Microsoft Defender for Endpoint CSVs (main work file) |
 | `sift-windows.html` | Windows Security Event Log CSVs or `.evtx` files |
 | `sift-defender.html` | Microsoft Defender for Endpoint only |
 | `sift-chronicle.html` | Google Chronicle / UDM only |
@@ -233,7 +233,25 @@ The **"Investigating: ▾"** dropdown reshapes the dashboard for a specific inve
 
 **Technique profiles** (appear only when detected — show full per-event TTP Context Card):
 
-T1059.001 PowerShell · T1059.003 Cmd Shell · T1047 WMI · T1053.005 Scheduled Task · T1543.003 Windows Service · T1003.001 LSASS Dump · T1003.006 DCSync · T1558.003 Kerberoasting · T1021.001 RDP · T1021.002 SMB · T1021.006 WinRM · T1027 Obfuscation · T1218.011 Rundll32 · T1105 Tool Transfer · T1204.002 Malicious File · T1547.001 Registry Run Key · T1071 C2 · T1571 Non-Standard Port · T1486 Ransomware · T1490 Inhibit Recovery · T1562.001 Disable Security Tools · T1496 Cryptomining
+T1003.001 LSASS Dump · T1003.002 SAM Dump · T1003.003 NTDS Dump · T1003.006 DCSync · T1021.001 RDP · T1021.002 SMB · T1021.006 WinRM · T1027 Obfuscation · T1027.010 Command Obfuscation · T1036.003 Rename System Utility · T1046 Network Service Discovery · T1047 WMI · T1048.003 Exfil over Unencrypted · T1053.005 Scheduled Task · T1055.001 DLL Injection · T1055.012 Process Hollowing · T1057 Process Discovery · T1059.001 PowerShell · T1059.003 Cmd Shell · T1059.005 VBScript · T1059.007 JavaScript · T1069.001/002 Group Discovery · T1070.001 Clear Event Logs · T1070.004 File Deletion · T1071 C2 · T1071.004 DNS C2 · T1082 System Info Discovery · T1083 File/Dir Discovery · T1087.001/002 Account Discovery · T1090 Proxy · T1105 Tool Transfer · T1110.003 Password Spraying · T1112 Modify Registry · T1113 Screen Capture · T1127.001 MSBuild · T1134.001 Token Impersonation · T1134.004 Parent PID Spoofing · T1136.001/002 Create Account · T1140 Deobfuscate · T1187 Forced Authentication · T1197 BITS Jobs · T1204.002 Malicious File · T1218.004/005/007/009/010/011 LOLBins · T1219 Remote Access Software · T1482 Domain Trust Discovery · T1485 Data Destruction · T1486 Ransomware · T1489 Service Stop · T1490 Inhibit Recovery · T1496 Cryptomining · T1505.003 Web Shell · T1518.001 Security Software Discovery · T1529 System Shutdown · T1543.003 Windows Service · T1546.003/008/012 Event Triggered Exec · T1547.001 Registry Run Key · T1548.002 Bypass UAC · T1550.002 Pass the Hash · T1550.003 Pass the Ticket · T1552.001/002 Unsecured Creds · T1555.003 Browser Creds · T1558.001 Golden Ticket · T1558.003 Kerberoasting · T1560.001 Archive via Utility · T1562 Impair Defenses · T1562.001 Disable Security Tools · T1562.002 Disable Event Logging · T1567.002 Cloud Storage Exfil · T1569.002 Service Execution · T1570 Lateral Tool Transfer · T1571 Non-Standard Port · T1572 Protocol Tunneling
+
+### Custom Profiles
+
+Click **＋ Build custom profile…** at the bottom of the Investigating dropdown to open the profile builder:
+
+- **Pick standard cards** with a checkbox grid — selected cards get a `P1–P4` (primary row) or `S1+` (secondary rows) position badge so you control layout order
+- **Pin any column as a custom field card** via the `＋ Add field` picker — shows top values for that column with click-to-filter
+- **💾 Save** to persist the profile to browser localStorage (appears at the top of the Investigating dropdown as a saved profile)
+- **✓ Apply** to use without saving (session only)
+
+When a custom profile is active, the overview shows only the cards you selected — no MITRE coverage, no notable indicators, no Top-N — pure custom dashboard. Saved profiles can be deleted from the dropdown with the × button.
+
+### Cell Selection & Copy
+
+- **Click and drag** across cells in the table to select a range (Excel-style)
+- **Shift+click** extends the selection
+- **Right-click** on selected cells → `Copy selection` (tab-separated, paste into Excel) or `Copy selection as JSON`
+- **Ctrl/Cmd+C** also copies as tab-separated values
 
 ### Windows Security specific cards
 
@@ -470,7 +488,8 @@ template.html    ──┘                (~650 KB, zero external dependencies)
 ```json
 {
   "name": "sift-my-variant",
-  "title": "Sift — My Variant",
+  "title": "Sift",
+  "header": "Sift",
   "description": "Description here",
   "modules": ["chronicle", "windows", "evtx-parser"],
   "features": {
@@ -484,11 +503,32 @@ template.html    ──┘                (~650 KB, zero external dependencies)
 
 2. Run `python build.py my-variant`
 
+### Naming convention
+
+- **Default title for new variants:** `"Sift"` — simple, scales as more connectors are added without combinatorial naming explosion
+- **Filename stays descriptive:** the `name` field becomes the output HTML filename, so `sift-my-variant` → `sift-my-variant.html` — users know what's inside before opening
+- **Internal / private variants:** can use any custom title (e.g. the work-only `hunt-investigator.html` is titled `Hunt Investigator`)
+
+Users can always edit the `title` and `header` fields in any manifest to brand their own build.
+
 ### Adding a new data source
 
 1. Create `src/modules/splunk.js` with detection and UI code
 2. Add it to any variant manifest under `"modules"`
 3. Run `python build.py`
+
+### Building a custom multi-source package
+
+`build.py --custom <module>...` assembles a one-off HTML on demand without creating a permanent variant folder:
+
+```bash
+python build.py --custom chronicle defender windows
+# → dist/sift-custom-chronicle-defender-windows.html
+
+python build.py --list   # show all available modules
+```
+
+Useful for ad-hoc combinations that don't need to live in `variants/`.
 
 ### Header name override
 
@@ -496,8 +536,11 @@ Any variant can override the header `<h1>` by adding a `"header"` field to its m
 
 ```json
 {
-  "name": "csv-viewer",
-  "header": "CSV Viewer",
+  "name": "sift-my-variant",
+  "title": "Sift",
+  "header": "My Custom Header Text",
   ...
 }
 ```
+
+If `"header"` is omitted, the template's default header (`Sift`) is used.

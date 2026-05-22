@@ -1,8 +1,8 @@
 {
-  "name": "csv-viewer",
-  "title": "CSV Viewer",
-  "description": "Google Chronicle / UDM + Microsoft Defender for Endpoint Investigation",
-  "header": "CSV Viewer",
+  "name": "hunt-investigator",
+  "title": "Hunt Investigator",
+  "description": "Hunt Investigator — Chronicle + Defender multi-source investigation",
+  "header": "Hunt Investigator",
   "modules": ["chronicle", "defender"],
   "features": {
     "chronicle": true,

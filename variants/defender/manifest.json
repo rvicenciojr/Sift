@@ -1,10 +1,9 @@
 {
   "name": "sift-defender",
-  "title": "Sift \u2014 Defender",
+  "title": "Sift - Defender Viewer",
+  "header": "Sift - Defender Viewer",
   "description": "Microsoft Defender for Endpoint Investigation",
-  "modules": [
-    "defender"
-  ],
+  "modules": ["defender"],
   "features": {
     "chronicle": false,
     "defender": true,

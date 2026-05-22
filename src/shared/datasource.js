@@ -151,19 +151,19 @@
     if (isChronicleData) {
       dsb.textContent = 'Chronicle';
       dsb.style.display = '';
-      dsb.style.background = 'rgba(66,133,244,0.15)';
+      dsb.style.background = '#FFFFFF';
       dsb.style.border = '1px solid #4285f4';
       dsb.style.color = '#4285f4';
     } else if (isDefender) {
       dsb.textContent = 'Defender';
       dsb.style.display = '';
-      dsb.style.background = 'rgba(0,120,212,0.15)';
+      dsb.style.background = '#FFFFFF';
       dsb.style.border = '1px solid #0078d4';
       dsb.style.color = '#0078d4';
     } else if (isWindowsSecurityLog) {
       dsb.textContent = 'Windows Security';
       dsb.style.display = '';
-      dsb.style.background = 'rgba(0,188,102,0.15)';
+      dsb.style.background = '#FFFFFF';
       dsb.style.border = '1px solid #00bc66';
       dsb.style.color = '#00bc66';
     } else {

@@ -1,10 +1,43 @@
 // overview.js — Data-driven overview dashboard
 // Computation runs in a web worker; main thread only builds DOM.
 
-  var overviewVisible = false;
-  var _ovWorker       = null;
-  var _ovRenderTimer  = null;
-  var _ovProfile      = null; // null = default | tactic name | technique ID
+  var overviewVisible  = false;
+  var _ovWorker        = null;
+  var _ovRenderTimer   = null;
+  var _ovProfile       = null; // null = default | tactic name | technique ID
+  var _ovCustomActive  = null; // active custom profile { name, cards, customFields } | null
+
+  // ── All standard card definitions for the custom profile builder ──────────────
+  var CARD_DEFS = [
+    { key: 'time',          label: 'Timeline',            desc: 'First/last event and duration' },
+    { key: 'scope',         label: 'Scope',               desc: 'Device and user counts' },
+    { key: 'activity',      label: 'Activity',            desc: 'Action type frequency bar chart' },
+    { key: 'severity',      label: 'Severity',            desc: 'Alert severity breakdown' },
+    { key: 'hostsAccounts', label: 'Hosts & Accounts',    desc: 'Top devices and users' },
+    { key: 'process',       label: 'Processes',           desc: 'Top process names' },
+    { key: 'procPairs',     label: 'Process Spawn Pairs', desc: 'Parent → child process chains' },
+    { key: 'network',       label: 'Network',             desc: 'External IPs, domains, ports, beaconing' },
+    { key: 'registry',      label: 'Registry',            desc: 'Registry key modifications' },
+    { key: 'hashes',        label: 'File Hashes',         desc: 'SHA256/MD5 with VirusTotal links' },
+  ];
+
+  // ── localStorage helpers ──────────────────────────────────────────────────────
+  function _cpSave(profile) {
+    try {
+      const all = _cpAll();
+      const idx = all.findIndex(p => p.name === profile.name);
+      if (idx >= 0) all[idx] = profile; else all.push(profile);
+      localStorage.setItem('sift_custom_profiles', JSON.stringify(all));
+    } catch(e) {}
+  }
+  function _cpAll() {
+    try { return JSON.parse(localStorage.getItem('sift_custom_profiles') || '[]'); } catch(e) { return []; }
+  }
+  function _cpDelete(name) {
+    try {
+      localStorage.setItem('sift_custom_profiles', JSON.stringify(_cpAll().filter(p => p.name !== name)));
+    } catch(e) {}
+  }
 
   // ── Typeahead navigation ─────────────────────────────────────────────────────
   var _ovTypeaheadStr  = '';
@@ -83,7 +116,7 @@
     _ovHoveredList = null; _ovHoveredRegion = null;
   }
 
-  function resetOvProfile() { _ovProfile = null; }
+  function resetOvProfile() { _ovProfile = null; } // _ovCustomActive persists across tab switches — it's a view preference
 
   function _sortIndicatorsByProfile(indicators) {
     if (!_ovProfile || !indicators.length) return indicators;
@@ -208,16 +241,16 @@
     srcBadge.className = 'ov-source-badge';
     if (isChronicleData) {
       srcBadge.textContent = 'Chronicle';
-      srcBadge.style.cssText = 'background:rgba(66,133,244,0.15);border:1px solid #4285f4;color:#4285f4';
+      srcBadge.style.cssText = 'background:#FFFFFF;border:1px solid #4285f4;color:#4285f4';
     } else if (typeof isWindowsSecurityLog !== 'undefined' && isWindowsSecurityLog) {
       srcBadge.textContent = 'Windows Security';
-      srcBadge.style.cssText = 'background:rgba(0,188,102,0.15);border:1px solid #00bc66;color:#00bc66';
+      srcBadge.style.cssText = 'background:#FFFFFF;border:1px solid #00bc66;color:#00bc66';
     } else if (ptHasDefenderCols()) {
       srcBadge.textContent = 'Defender';
-      srcBadge.style.cssText = 'background:rgba(0,120,212,0.15);border:1px solid #0078d4;color:#0078d4';
+      srcBadge.style.cssText = 'background:#FFFFFF;border:1px solid #0078d4;color:#0078d4';
     } else {
       srcBadge.textContent = 'CSV';
-      srcBadge.style.cssText = 'background:rgba(120,120,120,0.15);border:1px solid var(--cb-os2);color:var(--cb-os3)';
+      srcBadge.style.cssText = 'background:#FFFFFF;border:1px solid var(--cb-os2);color:var(--cb-os2)';
     }
     hdrTitle.appendChild(srcBadge);
 
@@ -244,13 +277,56 @@
     const profileDropdown = document.createElement('div'); profileDropdown.className = 'ov-profile-dropdown';
     profileDropdown.style.display = 'none';
 
-    // Default option
-    _addProfileOption(profileDropdown, null, 'default', d.mitreResults || {}, profileBtn);
+    // ── Saved custom profiles — always at the top ─────────────────────────────
+    const saved = _cpAll();
+    if (saved.length) {
+      const savedLbl = document.createElement('div'); savedLbl.style.cssText = 'font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--cb-muted);padding:2px 10px 4px'; savedLbl.textContent = 'Custom Profiles'; profileDropdown.appendChild(savedLbl);
+      saved.forEach(sp => {
+        const opt = document.createElement('div'); opt.className = 'ov-profile-opt';
+        if (_ovCustomActive && _ovCustomActive.name === sp.name) opt.classList.add('ov-profile-opt-active');
+        opt.style.cssText = 'justify-content:space-between';
+        const left = document.createElement('div'); left.style.cssText = 'display:flex;align-items:center;gap:6px;flex:1;min-width:0;cursor:pointer';
+        const icon = document.createElement('span'); icon.textContent = '⭐'; icon.style.cssText = 'flex-shrink:0;width:16px';
+        const lbl  = document.createElement('span'); lbl.style.cssText = 'font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'; lbl.textContent = sp.name;
+        left.appendChild(icon); left.appendChild(lbl);
+        left.onclick = () => {
+          _ovCustomActive = sp; _ovProfile = null;
+          profileDropdown.style.display = 'none';
+          profileBtn.innerHTML = `⭐ <span>Investigating: <strong>${sp.name}</strong></span> ▾`;
+          scheduleOverviewRender();
+        };
+        const del = document.createElement('span');
+        del.textContent = '×'; del.title = 'Delete profile';
+        del.style.cssText = 'color:var(--cb-muted);cursor:pointer;padding:0 4px;font-size:13px;flex-shrink:0';
+        del.onmouseover = () => del.style.color = '#e83e3e';
+        del.onmouseout  = () => del.style.color = '';
+        del.onclick = e => { e.stopPropagation(); _cpDelete(sp.name); if (_ovCustomActive && _ovCustomActive.name === sp.name) { _ovCustomActive = null; profileBtn.innerHTML = `🔍 <span>Investigating: <strong>General</strong></span> ▾`; } scheduleOverviewRender(); };
+        opt.appendChild(left); opt.appendChild(del);
+        profileDropdown.appendChild(opt);
+      });
+      const sepS = document.createElement('div'); sepS.style.cssText = 'border-top:1px solid var(--cb-border);margin:4px 0'; profileDropdown.appendChild(sepS);
+    }
+
+    // ── Build custom profile entry ──
+    const customOpt = document.createElement('div'); customOpt.className = 'ov-profile-opt';
+    customOpt.style.cssText = 'color:var(--cb-yellow)';
+    customOpt.innerHTML = '<span style="flex-shrink:0;width:16px">＋</span><span style="font-size:12px">Build custom profile…</span>';
+    customOpt.onclick = () => { profileDropdown.style.display = 'none'; _openCustomProfileBuilder(profileBtn); };
+    profileDropdown.appendChild(customOpt);
+
+    // ── Separator then standard profiles ──────────────────────────────────────
     const sep = document.createElement('div'); sep.style.cssText = 'border-top:1px solid var(--cb-border);margin:4px 0'; profileDropdown.appendChild(sep);
+
+    // General
+    _addProfileOption(profileDropdown, null, 'default', d.mitreResults || {}, profileBtn);
+    const sepT = document.createElement('div'); sepT.style.cssText = 'border-top:1px solid var(--cb-border);margin:4px 0'; profileDropdown.appendChild(sepT);
+
     // Tactic options
+    const tacticLbl = document.createElement('div'); tacticLbl.style.cssText = 'font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--cb-muted);padding:2px 10px 4px'; tacticLbl.textContent = 'Tactic'; profileDropdown.appendChild(tacticLbl);
     const tacticOrder = ['Initial Access','Execution','Persistence','Privilege Escalation','Defense Evasion',
       'Credential Access','Discovery','Lateral Movement','Collection','Command and Control','Exfiltration','Impact'];
     tacticOrder.forEach(tac => _addProfileOption(profileDropdown, tac, 'tactic', d.mitreResults || {}, profileBtn));
+
     // Technique overrides with hits
     const techHits = Object.keys(d.mitreResults || {}).filter(id => TECHNIQUE_PROFILES && TECHNIQUE_PROFILES[id]);
     if (techHits.length) {
@@ -317,26 +393,28 @@
 
     panel.appendChild(hdr);
 
-    // ── ATT&CK row: Coverage (3/4) + TTP Selector (1/4) — always at top ─────────
-    const attackRow = document.createElement('div'); attackRow.className = 'ov-row';
-    const coverageCard = buildMitreSummaryCard(d.mitreResults || {});
-    coverageCard.style.flex = '3';
-    attackRow.appendChild(coverageCard);
-    const ttpCard = buildMitreTtpSelector(d.mitreResults || {});
-    ttpCard.style.flex = '1'; ttpCard.style.minWidth = '200px';
-    attackRow.appendChild(ttpCard);
-    panel.appendChild(attackRow);
+    // ── ATT&CK row: Coverage + TTP Selector — hidden in custom profile mode ──────
+    if (!_ovCustomActive) {
+      const attackRow = document.createElement('div'); attackRow.className = 'ov-row';
+      const coverageCard = buildMitreSummaryCard(d.mitreResults || {});
+      coverageCard.style.flex = '3';
+      attackRow.appendChild(coverageCard);
+      const ttpCard = buildMitreTtpSelector(d.mitreResults || {});
+      ttpCard.style.flex = '1'; ttpCard.style.minWidth = '200px';
+      attackRow.appendChild(ttpCard);
+      panel.appendChild(attackRow);
 
-    // ── TTP context card — full investigative detail for active technique ────────
-    if (d.ttpContext && d.ttpContext.records && d.ttpContext.records.length) {
-      panel.appendChild(buildTtpContextCard(d.ttpContext, s));
+      // TTP context card — full investigative detail for active technique
+      if (d.ttpContext && d.ttpContext.records && d.ttpContext.records.length) {
+        panel.appendChild(buildTtpContextCard(d.ttpContext, s));
+      }
     }
 
-    // ── Feature 1: Event Frequency Timeline ───────────────────────────────────────
-    if (d.freqTimeline) panel.appendChild(buildFreqTimelineCard(d.freqTimeline));
+    // ── Feature 1: Event Frequency Timeline — suppressed in custom profiles ───────
+    if (!_ovCustomActive && d.freqTimeline) panel.appendChild(buildFreqTimelineCard(d.freqTimeline));
 
-    // ── Feature 2: Top-N Offenders ────────────────────────────────────────────────
-    const topNCard = d.topN ? buildTopNCard(d.topN) : null;
+    // ── Feature 2: Top-N Offenders — suppressed in custom profiles ────────────────
+    const topNCard = (!_ovCustomActive && d.topN) ? buildTopNCard(d.topN) : null;
     if (topNCard) panel.appendChild(topNCard);
 
     // ── Build all available data cards ───────────────────────────────────────────
@@ -355,20 +433,39 @@
     if (d.registry)   allCards.registry = buildRegistryCard(d.registry, s);
     if (d.hashes)     allCards.hashes   = buildHashesCard(d.hashes, s);
 
-    // ── Windows Security Log cards — ordered by active investigation profile ─────
-    if (d.winSec && typeof isWindowsSecurityLog !== 'undefined' && isWindowsSecurityLog) {
+    // ── When a custom profile is active, strip allCards to only selected keys ────
+    if (_ovCustomActive) {
+      const selected = new Set(_ovCustomActive.cards || []);
+      Object.keys(allCards).forEach(k => { if (!selected.has(k)) delete allCards[k]; });
+    }
+
+    // ── Windows Security Log cards — only when no custom profile active ───────────
+    if (!_ovCustomActive && d.winSec && typeof isWindowsSecurityLog !== 'undefined' && isWindowsSecurityLog) {
       _layoutWinSecCards(panel, d.winSec, s, _ovProfile);
     }
 
     // ── Layout generic cards by active profile ────────────────────────────────────
     _layoutCards(panel, allCards, profileDef);
 
+    // ── Custom field cards from active custom profile ──────────────────────────
+    const _customFields = _ovCustomActive ? (_ovCustomActive.customFields || []) : [];
+    if (_customFields.length) {
+      const cfRow = document.createElement('div'); cfRow.className = 'ov-row';
+      _customFields.forEach(col => {
+        const card = buildCustomFieldCard(col, rows);
+        if (card) cfRow.appendChild(card);
+      });
+      if (cfRow.children.length) panel.appendChild(cfRow);
+    }
+
     // ── Feature 4: Attack Chain Strip ────────────────────────────────────────────
     const chainCard = d.attackChain ? buildAttackChainCard(d.attackChain, s) : null;
     if (chainCard) panel.appendChild(chainCard);
 
-    // Notable indicators — always shown, collapsible, sorted by active profile
-    panel.appendChild(buildIndicatorsCard(_sortIndicatorsByProfile(d.indicators || []), s));
+    // Notable indicators — suppressed in custom profiles, otherwise always shown
+    if (!_ovCustomActive) {
+      panel.appendChild(buildIndicatorsCard(_sortIndicatorsByProfile(d.indicators || []), s));
+    }
 
     // Generic fallback
     if (!ptHasDefenderCols() && !isChronicleData && !(typeof isWindowsSecurityLog !== 'undefined' && isWindowsSecurityLog))
@@ -381,6 +478,10 @@
 
   // ── Profile helpers ───────────────────────────────────────────────────────────
   function _ovGetProfileDef() {
+    if (_ovCustomActive) {
+      const cards = _ovCustomActive.cards || [];
+      return { label: _ovCustomActive.name, icon: '⭐', hint: 'Custom profile', primary: cards.slice(0, 4), secondary: cards.slice(4) };
+    }
     if (!_ovProfile) return (typeof TACTIC_PROFILES !== 'undefined' && TACTIC_PROFILES['default']) || { label:'General', icon:'🔍', hint:'', primary:['time','scope','activity','severity'], secondary:['hostsAccounts','process','procPairs','network','registry','hashes'] };
     if (typeof TECHNIQUE_PROFILES !== 'undefined' && TECHNIQUE_PROFILES[_ovProfile])
       return TECHNIQUE_PROFILES[_ovProfile];
@@ -393,7 +494,8 @@
     const primary   = (profileDef.primary   || []).filter(k => cards[k]);
     const secondary = (profileDef.secondary || []).filter(k => cards[k]);
     const used      = new Set([...primary, ...secondary]);
-    const remaining = Object.keys(cards).filter(k => !used.has(k));
+    // Only append remaining cards when NOT in a custom profile — custom profiles show exactly what was selected
+    const remaining = _ovCustomActive ? [] : Object.keys(cards).filter(k => !used.has(k));
 
     // Primary row
     if (primary.length) {
@@ -444,6 +546,7 @@
     opt.appendChild(icon); opt.appendChild(lbl); opt.appendChild(cnt);
     opt.onclick = () => {
       _ovProfile = id;
+      _ovCustomActive = null; // clear any active custom profile when switching to a standard profile
       dropdown.style.display = 'none';
       profileBtn.innerHTML = `${def.icon} <span>Investigating: <strong>${def.label}</strong></span> ▾`;
       scheduleOverviewRender();
@@ -1619,19 +1722,39 @@
   }
 
   // ── Card: ATT&CK auto-summary ────────────────────────────────────────────────
+  // Returns the active tactic name — null if General or a technique is selected, tactic string only when a tactic is directly chosen
+  function _getActiveTactic() {
+    if (!_ovProfile) return null;
+    if (typeof TACTIC_PROFILES !== 'undefined' && TACTIC_PROFILES[_ovProfile]) return _ovProfile;
+    if (typeof MITRE_TECHNIQUES !== 'undefined') {
+      const tech = MITRE_TECHNIQUES.find(t => t.id === _ovProfile);
+      if (tech) return tech.tactic;
+    }
+    return null;
+  }
+
+  // Like _getActiveTactic but only returns a value when a tactic is directly selected —
+  // technique selections return null so the coverage card shows all tactics
+  function _getDirectTactic() {
+    if (!_ovProfile) return null;
+    if (typeof TACTIC_PROFILES !== 'undefined' && TACTIC_PROFILES[_ovProfile]) return _ovProfile;
+    return null;
+  }
+
   function buildMitreSummaryCard(mitreResults) {
+    const activeTactic = _getDirectTactic(); // only filter when a tactic is directly selected, not a technique
     const card = document.createElement('div'); card.className = 'ov-card ov-card-full';
     const title = document.createElement('div'); title.className = 'ov-card-title';
     title.textContent = 'ATT&CK Coverage';
     const sub = document.createElement('span'); sub.className = 'ov-card-sub';
-    sub.textContent = 'Automatically mapped from detected activity';
+    sub.textContent = activeTactic ? activeTactic : 'Automatically mapped from detected activity';
+    if (activeTactic) sub.style.color = tacticColor(activeTactic);
     title.appendChild(sub); card.appendChild(title);
 
-    // Group technique results by tactic
+    // ── Default view — all tactics summary (filtered to active tactic if set) ──
     const tacticMap = {};
     Object.entries(mitreResults).forEach(([id, count]) => {
-      const tech = (typeof MITRE_TECHNIQUES !== 'undefined')
-        ? MITRE_TECHNIQUES.find(t => t.id === id) : null;
+      const tech = (typeof MITRE_TECHNIQUES !== 'undefined') ? MITRE_TECHNIQUES.find(t => t.id === id) : null;
       const tactic = tech ? tech.tactic : 'Unknown';
       if (!tacticMap[tactic]) tacticMap[tactic] = { total: 0, techs: [] };
       tacticMap[tactic].total += count;
@@ -1640,16 +1763,14 @@
 
     const tacticOrder = ['Execution','Persistence','Privilege Escalation','Defense Evasion',
       'Credential Access','Discovery','Lateral Movement','Collection','Command and Control','Exfiltration','Impact','Initial Access'];
-    const sorted = tacticOrder.filter(t => tacticMap[t]).concat(
-      Object.keys(tacticMap).filter(t => !tacticOrder.includes(t))
-    );
+    const allSorted = tacticOrder.filter(t => tacticMap[t]).concat(Object.keys(tacticMap).filter(t => !tacticOrder.includes(t)));
+    // When a tactic is active, show only that bar
+    const sorted = activeTactic ? allSorted.filter(t => t === activeTactic) : allSorted;
 
     if (!sorted.length) {
-      const empty = document.createElement('div');
-      empty.style.cssText = 'color:var(--cb-muted);font-size:12px;padding:8px 0';
+      const empty = document.createElement('div'); empty.style.cssText = 'color:var(--cb-muted);font-size:12px;padding:8px 0';
       empty.textContent = 'No matching ATT&CK techniques detected in this dataset.';
-      card.appendChild(empty);
-      return card;
+      card.appendChild(empty); return card;
     }
 
     const maxTotal = Math.max(...sorted.map(t => tacticMap[t].total));
@@ -1659,40 +1780,23 @@
       const entry = tacticMap[tactic];
       const topTechs = entry.techs.sort((a, b) => b.count - a.count).slice(0, 3);
       const pct = Math.max(4, Math.round((entry.total / maxTotal) * 100));
-
       const row = document.createElement('div'); row.className = 'ov-mitre-summary-row';
-
-      const tacticEl = document.createElement('span'); tacticEl.className = 'ov-mitre-tactic-label';
-      tacticEl.textContent = tactic; tacticEl.title = tactic;
+      const tacticEl = document.createElement('span'); tacticEl.className = 'ov-mitre-tactic-label'; tacticEl.textContent = tactic; tacticEl.title = tactic;
       row.appendChild(tacticEl);
-
       const barWrap = document.createElement('div'); barWrap.className = 'ov-mitre-bar-wrap';
-      const bar = document.createElement('div'); bar.className = 'ov-mitre-bar';
-      bar.style.width = pct + '%';
-      bar.style.background = tacticColor(tactic);
+      const bar = document.createElement('div'); bar.className = 'ov-mitre-bar'; bar.style.width = pct+'%'; bar.style.background = tacticColor(tactic);
       barWrap.appendChild(bar); row.appendChild(barWrap);
-
       const techPills = document.createElement('div'); techPills.className = 'ov-mitre-pills';
       topTechs.forEach(t => {
-        const pill = document.createElement('span'); pill.className = 'ov-mitre-pill';
-        pill.textContent = t.id;
-        pill.title = t.name + ' — ' + t.count.toLocaleString() + ' events';
-        pill.style.cursor = 'pointer';
+        const pill = document.createElement('span'); pill.className = 'ov-mitre-pill'; pill.textContent = t.id;
+        pill.title = t.name+' — '+t.count.toLocaleString()+' events'; pill.style.cursor = 'pointer';
         pill.onclick = () => addTtpFilterKeepOverview(t.id);
-        pill.addEventListener('contextmenu', e => { e.preventDefault(); addTtpFilterKeepOverview(t.id); });
         techPills.appendChild(pill);
       });
-      if (entry.techs.length > 3) {
-        const more = document.createElement('span'); more.className = 'ov-mitre-pill ov-mitre-pill-more';
-        more.textContent = '+' + (entry.techs.length - 3) + ' more';
-        techPills.appendChild(more);
-      }
+      if (entry.techs.length > 3) { const more = document.createElement('span'); more.className = 'ov-mitre-pill ov-mitre-pill-more'; more.textContent = '+'+(entry.techs.length-3)+' more'; techPills.appendChild(more); }
       row.appendChild(techPills);
-
-      const cnt = document.createElement('span'); cnt.className = 'ov-mitre-total';
-      cnt.textContent = entry.total.toLocaleString();
+      const cnt = document.createElement('span'); cnt.className = 'ov-mitre-total'; cnt.textContent = entry.total.toLocaleString();
       row.appendChild(cnt);
-
       grid.appendChild(row);
     });
 
@@ -1702,39 +1806,32 @@
 
   // ── Card: ATT&CK TTP selector ────────────────────────────────────────────────
   function buildMitreTtpSelector(mitreResults) {
+    const activeTactic = _getDirectTactic(); // only narrow to one tactic when explicitly selected, not via technique
     const wrapper = document.createElement('div'); wrapper.className = 'ov-card ov-card-full';
     wrapper.addEventListener('mouseenter', () => { _ovHoveredRegion = 'ttp'; _ovHoveredList = null; });
     wrapper.addEventListener('mouseleave', () => { if (_ovHoveredRegion === 'ttp') _ovHoveredRegion = null; });
     const headerRow = document.createElement('div'); headerRow.className = 'ov-card-title';
-    headerRow.style.cursor = 'pointer';
 
     const titleSpan = document.createElement('span'); titleSpan.textContent = 'TTP Selector';
-    // Expand All / Collapse All buttons
+
+    // ── Default view — tactic accordion ──────────────────────────────────────
+    headerRow.style.cursor = 'pointer';
     const expandAllBtn = document.createElement('button');
     expandAllBtn.style.cssText = 'font-size:9px;padding:1px 6px;margin-left:auto;background:transparent;border:1px solid var(--cb-os2);border-radius:3px;color:var(--cb-os3);cursor:pointer';
-    expandAllBtn.textContent = '⊞ All';
-    expandAllBtn.title = 'Expand all tactics';
+    expandAllBtn.textContent = '⊞ All'; expandAllBtn.title = 'Expand all tactics';
     const collapseAllBtn = document.createElement('button');
     collapseAllBtn.style.cssText = 'font-size:9px;padding:1px 6px;background:transparent;border:1px solid var(--cb-os2);border-radius:3px;color:var(--cb-os3);cursor:pointer';
-    collapseAllBtn.textContent = '⊟ All';
-    collapseAllBtn.title = 'Collapse all tactics';
-    const chevron = document.createElement('span');
-    chevron.style.cssText = 'font-size:10px;color:var(--cb-os3);margin-left:6px';
-    chevron.textContent = '▾';
+    collapseAllBtn.textContent = '⊟ All'; collapseAllBtn.title = 'Collapse all tactics';
+    const chevron = document.createElement('span'); chevron.style.cssText = 'font-size:10px;color:var(--cb-os3);margin-left:6px'; chevron.textContent = '▾';
 
     headerRow.appendChild(titleSpan); headerRow.appendChild(expandAllBtn); headerRow.appendChild(collapseAllBtn); headerRow.appendChild(chevron);
     wrapper.appendChild(headerRow);
 
-    // Start expanded
     const body = document.createElement('div');
-
-    // Compact search + hit count
     const searchInput = document.createElement('input'); searchInput.type = 'text';
-    searchInput.placeholder = 'Search ID or name…';
-    searchInput.className = 'ov-ttp-search';
+    searchInput.placeholder = 'Search ID or name…'; searchInput.className = 'ov-ttp-search';
     searchInput.style.cssText = 'width:100%;margin:8px 0 6px;box-sizing:border-box';
-    const hitCount = document.createElement('div'); hitCount.className = 'ov-ttp-hit-count';
-    hitCount.style.marginBottom = '6px';
+    const hitCount = document.createElement('div'); hitCount.className = 'ov-ttp-hit-count'; hitCount.style.marginBottom = '6px';
     const hitN = Object.keys(mitreResults).length;
     hitCount.textContent = hitN ? hitN + ' technique' + (hitN !== 1 ? 's' : '') + ' detected — click a tactic to expand' : 'No techniques detected in current data';
     body.appendChild(searchInput);
@@ -1854,6 +1951,20 @@
       tacticSections.push({ section, techList, tacticChevron, tactic });
     });
 
+    // When a tactic is active: hide all other sections, expand the matching one
+    if (activeTactic) {
+      expandAllBtn.style.display = 'none';
+      collapseAllBtn.style.display = 'none';
+      tacticSections.forEach(({ section, techList, tacticChevron, tactic }) => {
+        if (tactic === activeTactic) {
+          techList.style.display = 'block';
+          tacticChevron.textContent = '▾';
+        } else {
+          section.style.display = 'none';
+        }
+      });
+    }
+
     // Expand All / Collapse All
     expandAllBtn.onclick = e => {
       e.stopPropagation();
@@ -1868,17 +1979,19 @@
       });
     };
 
-    // Search handler
+    // Search handler — respects active tactic filter (won't re-show hidden sections)
     searchInput.oninput = () => {
       const q = searchInput.value.trim().toLowerCase();
       if (!q) {
         tacticSections.forEach(({ section, techList, tacticChevron, tactic }) => {
+          if (activeTactic && tactic !== activeTactic) return; // keep hidden
           section.style.display = '';
           techList.querySelectorAll('.ov-ttp-tech-row,.ov-ttp-sub-row').forEach(r => r.style.display = '');
         });
         return;
       }
-      tacticSections.forEach(({ section, techList, tacticChevron }) => {
+      tacticSections.forEach(({ section, techList, tacticChevron, tactic }) => {
+        if (activeTactic && tactic !== activeTactic) return; // keep hidden
         let anyVisible = false;
         techList.querySelectorAll('.ov-ttp-tech-row,.ov-ttp-sub-row').forEach(r => {
           const match = (r.dataset.techId||'').toLowerCase().includes(q) || (r.dataset.techName||'').includes(q);
@@ -2125,6 +2238,233 @@
     return wrap;
   }
 
+  // ── Card: custom pinned field ─────────────────────────────────────────────────
+  function buildCustomFieldCard(colName, rows) {
+    const counts = {};
+    rows.forEach(row => { const v = (row[colName]||'').trim(); if (v) counts[v] = (counts[v]||0)+1; });
+    const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,25);
+    if (!sorted.length) return null;
+    const card = document.createElement('div'); card.className = 'ov-card'; card.style.position = 'relative';
+    const title = document.createElement('div'); title.className = 'ov-card-title'; title.style.paddingRight = '24px';
+    const short = colName.length > 32 ? '…'+colName.slice(-30) : colName;
+    title.textContent = short; title.title = colName;
+    const sub = document.createElement('span'); sub.className = 'ov-card-sub';
+    sub.textContent = Object.keys(counts).length.toLocaleString()+' unique'; title.appendChild(sub);
+    card.appendChild(title);
+    card.appendChild(ovScrollList(sorted, ([val,count]) => ovRow(colName, val, val, count.toLocaleString())));
+    return card;
+  }
+
+  // ── Custom profile builder modal ──────────────────────────────────────────────
+  function _openCustomProfileBuilder(profileBtn) {
+    // Remove any existing builder
+    const existing = document.getElementById('sift-cpb-modal');
+    if (existing) existing.remove();
+
+    const initial = _ovCustomActive || { name: '', cards: ['hostsAccounts','activity','process','procPairs','network','time'], customFields: [] };
+
+    const overlay = document.createElement('div'); overlay.id = 'sift-cpb-modal';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:600;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)';
+    overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+
+    const box = document.createElement('div');
+    box.style.cssText = 'background:var(--modal-bg);border:1px solid var(--cb-yellow);border-radius:10px;width:520px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.7)';
+
+    // Header
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--cb-os1);background:var(--cb-dark);border-radius:10px 10px 0 0';
+    const hdrTitle = document.createElement('span');
+    hdrTitle.style.cssText = 'font-size:14px;font-weight:700;color:var(--cb-yellow)';
+    hdrTitle.textContent = '⭐ Custom Profile Builder';
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕'; closeBtn.style.cssText = 'margin-left:auto;background:none;border:none;color:var(--cb-muted);font-size:15px;cursor:pointer;padding:0 4px';
+    closeBtn.onclick = () => overlay.remove();
+    hdr.appendChild(hdrTitle); hdr.appendChild(closeBtn);
+    box.appendChild(hdr);
+
+    // Body
+    const body = document.createElement('div');
+    body.style.cssText = 'overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:18px;flex:1';
+
+    // ── Section 1: Standard cards ──
+    const sec1 = document.createElement('div');
+    const sec1Hdr = document.createElement('div'); sec1Hdr.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--cb-muted);margin-bottom:10px';
+    sec1Hdr.textContent = 'Standard Cards — select and order'; sec1.appendChild(sec1Hdr);
+
+    const sub1 = document.createElement('div'); sub1.style.cssText = 'font-size:10px;color:var(--cb-muted);margin-bottom:10px';
+    sub1.textContent = 'First 4 checked = primary row (top) · rest = secondary rows below'; sec1.appendChild(sub1);
+
+    let selectedCards = [...(initial.cards || [])];
+
+    const cardGrid = document.createElement('div');
+    cardGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px';
+
+    const rebuildGrid = () => {
+      cardGrid.innerHTML = '';
+      // Show checked first (in order), then unchecked
+      const checked   = selectedCards.filter(k => CARD_DEFS.find(d => d.key === k));
+      const unchecked = CARD_DEFS.filter(d => !selectedCards.includes(d.key));
+      const ordered   = [...checked.map(k => CARD_DEFS.find(d => d.key === k)), ...unchecked];
+
+      ordered.forEach((def, idx) => {
+        const isChecked = selectedCards.includes(def.key);
+        const pos = isChecked ? selectedCards.indexOf(def.key) + 1 : null;
+
+        const item = document.createElement('div');
+        item.style.cssText = `display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:pointer;border:1px solid ${isChecked ? 'rgba(255,215,0,0.4)' : 'var(--cb-os1)'};background:${isChecked ? 'rgba(255,215,0,0.06)' : 'transparent'};transition:all .15s`;
+        item.onmouseover = () => { if (!isChecked) item.style.background = 'rgba(255,255,255,0.04)'; };
+        item.onmouseout  = () => { if (!isChecked) item.style.background = 'transparent'; };
+
+        if (pos) {
+          const badge = document.createElement('span');
+          badge.style.cssText = `font-size:9px;font-weight:700;background:${pos <= 4 ? 'rgba(255,215,0,0.2)' : 'rgba(100,100,100,0.2)'};color:${pos <= 4 ? 'var(--cb-yellow)' : 'var(--cb-muted)'};padding:1px 5px;border-radius:3px;min-width:18px;text-align:center;flex-shrink:0`;
+          badge.textContent = pos <= 4 ? 'P'+pos : 'S'+(pos-4);
+          item.appendChild(badge);
+        } else {
+          const spacer = document.createElement('span'); spacer.style.cssText = 'width:24px;flex-shrink:0'; item.appendChild(spacer);
+        }
+
+        const lbl = document.createElement('div'); lbl.style.cssText = 'flex:1;min-width:0';
+        const name = document.createElement('div'); name.style.cssText = `font-size:11px;font-weight:600;color:${isChecked ? 'var(--modal-text)' : 'var(--cb-muted)'}`;
+        name.textContent = def.label;
+        const desc = document.createElement('div'); desc.style.cssText = 'font-size:9px;color:var(--cb-muted);margin-top:1px'; desc.textContent = def.desc;
+        lbl.appendChild(name); lbl.appendChild(desc); item.appendChild(lbl);
+
+        if (isChecked) {
+          const mv = document.createElement('span'); mv.style.cssText = 'font-size:11px;color:var(--cb-muted);cursor:pointer;flex-shrink:0;padding:0 2px';
+          mv.textContent = '↑↓'; mv.title = 'Move up/down';
+          mv.onclick = e => {
+            e.stopPropagation();
+            const i = selectedCards.indexOf(def.key);
+            if (i > 0) { selectedCards.splice(i,1); selectedCards.splice(i-1,0,def.key); rebuildGrid(); }
+          };
+          item.appendChild(mv);
+        }
+
+        item.onclick = () => {
+          if (selectedCards.includes(def.key)) selectedCards = selectedCards.filter(k => k !== def.key);
+          else selectedCards.push(def.key);
+          rebuildGrid();
+        };
+
+        cardGrid.appendChild(item);
+      });
+    };
+    rebuildGrid();
+    sec1.appendChild(cardGrid);
+    body.appendChild(sec1);
+
+    // ── Section 2: Custom field cards ──
+    const sec2 = document.createElement('div');
+    const sec2Hdr = document.createElement('div'); sec2Hdr.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--cb-muted);margin-bottom:10px';
+    sec2Hdr.textContent = 'Custom Field Cards'; sec2.appendChild(sec2Hdr);
+
+    let customFields = [...(initial.customFields || [])];
+    const chipArea = document.createElement('div'); chipArea.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px';
+
+    const rebuildChips = () => {
+      chipArea.innerHTML = '';
+      customFields.forEach(col => {
+        const chip = document.createElement('span');
+        chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 8px;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.35);border-radius:4px;color:var(--cb-yellow)';
+        const txt = document.createElement('span'); txt.textContent = col.length > 24 ? col.slice(0,22)+'…' : col; txt.title = col;
+        const rm = document.createElement('span'); rm.textContent = '×'; rm.style.cursor = 'pointer'; rm.style.opacity = '0.6';
+        rm.onclick = () => { customFields = customFields.filter(f => f !== col); rebuildChips(); };
+        chip.appendChild(txt); chip.appendChild(rm); chipArea.appendChild(chip);
+      });
+      if (!customFields.length) {
+        const empty = document.createElement('span'); empty.style.cssText = 'font-size:11px;color:var(--cb-muted)'; empty.textContent = 'No custom fields added'; chipArea.appendChild(empty);
+      }
+    };
+    rebuildChips();
+    sec2.appendChild(chipArea);
+
+    // Field picker dropdown
+    const fpWrap = document.createElement('div'); fpWrap.style.cssText = 'position:relative;display:inline-block';
+    const fpBtn = document.createElement('button');
+    fpBtn.textContent = '＋ Add field';
+    fpBtn.style.cssText = 'font-size:11px;padding:4px 10px;background:transparent;border:1px solid var(--cb-os1);border-radius:4px;color:var(--cb-text-inverse);cursor:pointer';
+    const fpPanel = document.createElement('div');
+    fpPanel.style.cssText = 'display:none;position:absolute;left:0;top:calc(100% + 4px);background:var(--modal-bg);border:1px solid var(--cb-os1);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,0.5);z-index:700;width:220px;flex-direction:column;max-height:240px';
+    const fpSearch = document.createElement('input'); fpSearch.type='text'; fpSearch.placeholder='Search columns…';
+    fpSearch.style.cssText = 'margin:8px;padding:4px 8px;background:rgba(0,0,0,0.3);border:1px solid var(--cb-os1);border-radius:4px;color:var(--cb-text-inverse);font-size:11px;outline:none';
+    const fpList = document.createElement('div'); fpList.style.cssText = 'overflow-y:auto;max-height:180px;padding-bottom:4px';
+
+    const buildFpList = (filter) => {
+      fpList.innerHTML = '';
+      const allCols = (typeof headers !== 'undefined' ? headers : []).filter(h => h&&h.trim());
+      const filtered = filter ? allCols.filter(h=>h.toLowerCase().includes(filter.toLowerCase())) : allCols;
+      filtered.forEach(col => {
+        const row = document.createElement('div');
+        row.style.cssText = 'font-size:11px;padding:5px 12px;cursor:pointer;display:flex;align-items:center;gap:6px';
+        row.onmouseover = () => row.style.background='rgba(255,215,0,0.08)';
+        row.onmouseout  = () => row.style.background='';
+        const already = customFields.includes(col);
+        const chk = document.createElement('span'); chk.style.cssText='font-size:10px;width:12px;color:var(--cb-yellow)'; chk.textContent=already?'✓':'';
+        const lbl = document.createElement('span'); lbl.style.cssText=`flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${already?'var(--cb-yellow)':'var(--modal-text)'}`;
+        lbl.textContent=col; lbl.title=col;
+        row.appendChild(chk); row.appendChild(lbl);
+        row.onclick = () => {
+          if (customFields.includes(col)) customFields=customFields.filter(f=>f!==col);
+          else customFields.push(col);
+          rebuildChips(); buildFpList(fpSearch.value);
+        };
+        fpList.appendChild(row);
+      });
+    };
+    buildFpList('');
+    fpSearch.oninput = () => buildFpList(fpSearch.value);
+    fpPanel.appendChild(fpSearch); fpPanel.appendChild(fpList);
+    fpBtn.onclick = e => { e.stopPropagation(); const open=fpPanel.style.display==='flex'; fpPanel.style.display=open?'none':'flex'; if(!open){buildFpList('');fpSearch.value='';setTimeout(()=>fpSearch.focus(),30);}};
+    document.addEventListener('click', ()=>{fpPanel.style.display='none';});
+    fpPanel.onclick = e=>e.stopPropagation();
+    fpWrap.appendChild(fpBtn); fpWrap.appendChild(fpPanel);
+    sec2.appendChild(fpWrap);
+    body.appendChild(sec2);
+    box.appendChild(body);
+
+    // Footer
+    const footer = document.createElement('div');
+    footer.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid var(--cb-os1);background:var(--cb-dark);border-radius:0 0 10px 10px;flex-wrap:wrap';
+
+    const nameInput = document.createElement('input'); nameInput.type='text'; nameInput.placeholder='Profile name…';
+    nameInput.value = initial.name || '';
+    nameInput.style.cssText = 'flex:1;min-width:120px;padding:5px 9px;background:rgba(0,0,0,0.3);border:1px solid var(--cb-os1);border-radius:4px;color:var(--cb-text-inverse);font-size:11px;outline:none';
+
+    const saveBtn = document.createElement('button'); saveBtn.textContent = '💾 Save';
+    saveBtn.style.cssText = 'font-size:11px;padding:5px 12px;background:rgba(255,215,0,0.15);border:1px solid var(--cb-yellow);border-radius:4px;color:var(--cb-yellow);cursor:pointer;font-weight:700';
+    saveBtn.onclick = () => {
+      const name = nameInput.value.trim();
+      if (!name) { nameInput.style.borderColor='#e83e3e'; setTimeout(()=>nameInput.style.borderColor='',1500); return; }
+      const profile = { name, cards: selectedCards, customFields };
+      _cpSave(profile);
+      _ovCustomActive = profile; _ovProfile = null;
+      profileBtn.innerHTML = `⭐ <span>Investigating: <strong>${name}</strong></span> ▾`;
+      overlay.remove();
+      scheduleOverviewRender();
+    };
+
+    const applyBtn = document.createElement('button'); applyBtn.textContent = '✓ Apply';
+    applyBtn.style.cssText = 'font-size:11px;padding:5px 12px;background:transparent;border:1px solid var(--cb-os1);border-radius:4px;color:var(--cb-text-inverse);cursor:pointer';
+    applyBtn.onclick = () => {
+      const name = nameInput.value.trim() || 'Custom';
+      _ovCustomActive = { name, cards: selectedCards, customFields };
+      _ovProfile = null;
+      profileBtn.innerHTML = `⭐ <span>Investigating: <strong>${name}</strong></span> ▾`;
+      overlay.remove();
+      scheduleOverviewRender();
+    };
+
+    const cancelBtn = document.createElement('button'); cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.cssText = 'font-size:11px;padding:5px 10px;background:none;border:none;color:var(--cb-muted);cursor:pointer';
+    cancelBtn.onclick = () => overlay.remove();
+
+    footer.appendChild(nameInput); footer.appendChild(saveBtn); footer.appendChild(applyBtn); footer.appendChild(cancelBtn);
+    box.appendChild(footer);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+  }
+
   // ── Generic card builder ──────────────────────────────────────────────────────
   function buildCard(titleText, items) {
     const card = document.createElement('div'); card.className = 'ov-card';
@@ -2144,11 +2484,15 @@
 
   // ── Filter from overview — stays in overview, cards update live ──────────────
   function filterFromOverview(col, val, mode) {
+    const m = mode || 'contains';
+    // Don't add a duplicate — if an identical filter already exists, skip
+    const already = (filterRows || []).some(r => r.col === col && r.value === val && r.mode === m);
+    if (already) return;
     const id = ++filterRowCounter;
-    filterRows.push({ id, col, mode: mode||'contains', value: val, connector: 'AND' });
+    filterRows.push({ id, col, mode: m, value: val, connector: 'AND' });
     renderFilterRows();
     document.getElementById('filterBar').classList.remove('hidden');
-    applyFilter(); // triggers scheduleOverviewRender via debounce — overview stays open
+    applyFilter();
   }
 
   // ── Active filter summary for the header strip ────────────────────────────────

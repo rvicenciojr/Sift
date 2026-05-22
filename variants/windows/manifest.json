@@ -1,11 +1,9 @@
 {
   "name": "sift-windows",
-  "title": "Sift \u2014 Windows",
+  "title": "Sift - Windows Event Viewer",
+  "header": "Sift - Windows Event Viewer",
   "description": "Windows Security Event Log & .evtx Investigation",
-  "modules": [
-    "windows",
-    "evtx-parser"
-  ],
+  "modules": ["windows", "evtx-parser"],
   "features": {
     "chronicle": false,
     "defender": false,

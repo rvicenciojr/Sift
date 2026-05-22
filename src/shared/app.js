@@ -401,6 +401,11 @@
         // Timeline/bytes are always per-tab regardless of global mode
         outgoing.timelineVisible = timelineVisible;
         outgoing.bytesVisible    = bytesVisible;
+        outgoing.hlOnly          = typeof hlOnly !== 'undefined' ? hlOnly : false;
+        outgoing.cpSortMode      = typeof cpSortMode !== 'undefined' ? cpSortMode : 'count-desc';
+        // Save overview profile state per-tab
+        outgoing.ovProfile       = (typeof _ovProfile !== 'undefined') ? _ovProfile : null;
+        outgoing.ovCustomActive  = (typeof _ovCustomActive !== 'undefined') ? _ovCustomActive : null;
         if (!globalMode) {
           // Flush any DOM-typed-but-not-yet-debounced filter values
           filterRows.forEach(row => {
@@ -443,7 +448,10 @@
  
     // Real CSV tab - ensure table is visible again after leaving blank tabs
     document.getElementById('dropZone').style.display = 'none';
-    document.getElementById('tableWrap').style.display = 'block';
+    // Only show table if overview panel is not open
+    if (typeof overviewVisible === 'undefined' || !overviewVisible) {
+      document.getElementById('tableWrap').style.display = 'block';
+    }
    
     // Restore tab state into global variables
     allRows = tab.allRows;
@@ -494,12 +502,18 @@
     document.getElementById('filterBar').classList.remove('hidden');
     updateProcTreeBtn();
 
-    // Reset highlight-only filter on tab switch
-    if (hlOnly) {
-      hlOnly = false;
-      const btn = document.getElementById('hlOnlyBtn');
-      if (btn) { btn.textContent = '🎯 Show highlighted'; btn.classList.remove('active'); }
+    // Restore highlight-only and column picker sort preference for this tab
+    hlOnly     = !!tab.hlOnly;
+    cpSortMode = tab.cpSortMode || 'count-desc';
+    const hlBtn = document.getElementById('hlOnlyBtn');
+    if (hlBtn) {
+      hlBtn.textContent = hlOnly ? '🎯 Showing highlighted' : '🎯 Show highlighted';
+      hlBtn.classList.toggle('active', hlOnly);
     }
+
+    // Restore overview profile state for this tab
+    if (typeof _ovProfile !== 'undefined')      _ovProfile      = tab.ovProfile      || null;
+    if (typeof _ovCustomActive !== 'undefined') _ovCustomActive = tab.ovCustomActive || null;
 
     // Timeline / bytes are always per-tab regardless of global mode
     timelineVisible = !!tab.timelineVisible;
@@ -516,6 +530,11 @@
 
     applyFilter();
     renderColFilterChips();
+
+    // If overview is open, re-render it with the new tab's data
+    if (typeof overviewVisible !== 'undefined' && overviewVisible && typeof scheduleOverviewRender === 'function') {
+      scheduleOverviewRender();
+    }
   }
 
   function openBlankTab() {
@@ -1180,6 +1199,11 @@
       input.placeholder = 'Filter value…';
       input.value       = row.value;
       input.oninput     = () => { updateRowProp(row.id, 'value', input.value); scheduleFilter(); };
+      // Mark invalid regex with red border + tooltip so it's not silent
+      if ((row.mode === 'regex' || row.mode === 'notregex') && row._reErr) {
+        input.style.borderColor = '#e83e3e';
+        input.title = 'Invalid regex: ' + row._reErr;
+      }
 
       // Remove button
       const btn = document.createElement('button');
@@ -1223,15 +1247,18 @@
       case 'regex': {
         // Cache compiled regex on the filter row — only recompile when value changes
         if (!filterRow._re || filterRow._reVal !== val) {
-          try { filterRow._re = new RegExp(val, 'i'); filterRow._reVal = val; } catch(e) { filterRow._re = null; }
+          try { filterRow._re = new RegExp(val, 'i'); filterRow._reVal = val; filterRow._reErr = null; }
+          catch(e) { filterRow._re = null; filterRow._reErr = e.message; filterRow._reVal = val; }
         }
-        return filterRow._re ? filterRow._re.test(text) : false;
+        // Invalid regex passes rows through (don't silently hide everything) — UI marks the row
+        return filterRow._reErr ? true : filterRow._re.test(text);
       }
       case 'notregex': {
         if (!filterRow._re || filterRow._reVal !== val) {
-          try { filterRow._re = new RegExp(val, 'i'); filterRow._reVal = val; } catch(e) { filterRow._re = null; }
+          try { filterRow._re = new RegExp(val, 'i'); filterRow._reVal = val; filterRow._reErr = null; }
+          catch(e) { filterRow._re = null; filterRow._reErr = e.message; filterRow._reVal = val; }
         }
-        return filterRow._re ? !filterRow._re.test(text) : true;
+        return filterRow._reErr ? true : !filterRow._re.test(text);
       }
       default: return true;
     }
@@ -1244,16 +1271,18 @@
      if (tab && !tab.filterEnabled) {
        rows = allRows;
      } else {
-       // Text filter rows
-       if (filterRows.some(r => r.value.trim())) {
-      rows = rows.filter(dataRow => {
-        let result = evaluateFilterRow(dataRow, filterRows[0]);
-        for (let i = 1; i < filterRows.length; i++) {
-          const next = evaluateFilterRow(dataRow, filterRows[i]);
-          result = filterRows[i].connector === 'OR' ? result || next : result && next;
-        }
-        return result;
-      });
+       // Text filter rows — only evaluate non-blank rows so a blank first row doesn't
+       // short-circuit OR logic by contributing 'true' to the chain
+       const activeFilterRows = filterRows.filter(r => r.value.trim());
+       if (activeFilterRows.length) {
+         rows = rows.filter(dataRow => {
+           let result = evaluateFilterRow(dataRow, activeFilterRows[0]);
+           for (let i = 1; i < activeFilterRows.length; i++) {
+             const next = evaluateFilterRow(dataRow, activeFilterRows[i]);
+             result = activeFilterRows[i].connector === 'OR' ? result || next : result && next;
+           }
+           return result;
+         });
        }
        // Column value filters
        const activeColFilters = Object.entries(columnFilters).filter(([,s]) => s !== null);
@@ -2276,8 +2305,22 @@
       { type: 'sep' },
       { type: 'item', icon: '📋', text: 'Copy value',            fn: function() { navigator.clipboard.writeText(_ctxVal).catch(function(){}); } },
       { type: 'item', icon: '📄', text: 'Copy row as JSON',      fn: function() { ctxCopyRow('json'); } },
-      { type: 'item', icon: '📊', text: 'Copy row as CSV',       fn: function() { ctxCopyRow('csv'); } },
     ];
+
+    // Selection copy items — only shown when cells are selected
+    if (window._cellSel && window._cellSel.has()) {
+      items.push({ type: 'sep' });
+      items.push({ type: 'item', icon: '📑', text: 'Copy selection', fn: function() {
+        var text = window._cellSel.copyText();
+        navigator.clipboard.writeText(text).catch(function() {});
+        closeCellMenu();
+      }});
+      items.push({ type: 'item', icon: '{ }', text: 'Copy selection as JSON', fn: function() {
+        var text = window._cellSel.copyJSON();
+        navigator.clipboard.writeText(text).catch(function() {});
+        closeCellMenu();
+      }});
+    }
 
     if (typeof isChronicleData !== 'undefined' && isChronicleData && typeof copyYaraL === 'function') {
       items.push({ type: 'item', icon: '📝', text: 'Copy as YARA-L rule', fn: function() { copyYaraL(_ctxCol, _ctxVal); } });
@@ -2605,4 +2648,154 @@
       _dragging = false;
       try { localStorage.setItem(QB_POS_KEY, JSON.stringify({ left: _panel.style.left, top: _panel.style.top })); } catch(e) {}
     });
+  })();
+
+  // ── Cell selection — Excel-style drag to select ───────────────────────────────
+  (function() {
+    var _start    = null;  // { row, col }
+    var _end      = null;
+    var _dragging = false;
+    var _hasSel   = false;
+    var _rafPend  = false;
+    var _moved    = false; // true once drag moves beyond starting cell
+
+    function _getCell(e) { return e.target.closest('#csvBody td'); }
+
+    function _getPos(td) {
+      var tbody = document.getElementById('csvBody');
+      if (!tbody) return null;
+      var row = td.closest('tr');
+      var ri  = Array.prototype.indexOf.call(tbody.rows, row);
+      var ci  = Array.prototype.indexOf.call(row.cells, td);
+      return (ri >= 0 && ci >= 0) ? { row: ri, col: ci } : null;
+    }
+
+    function _apply() {
+      _rafPend = false;
+      var tbody = document.getElementById('csvBody');
+      if (!tbody || !_start || !_end) return;
+      var minR = Math.min(_start.row, _end.row), maxR = Math.max(_start.row, _end.row);
+      var minC = Math.min(_start.col, _end.col), maxC = Math.max(_start.col, _end.col);
+      for (var r = 0; r < tbody.rows.length; r++) {
+        var cells = tbody.rows[r].cells;
+        for (var c = 0; c < cells.length; c++) {
+          cells[c].classList.toggle('cell-selected', r >= minR && r <= maxR && c >= minC && c <= maxC);
+        }
+      }
+      _hasSel = true;
+    }
+
+    function _clear() {
+      document.querySelectorAll('#csvBody td.cell-selected').forEach(function(td) { td.classList.remove('cell-selected'); });
+      _start = null; _end = null; _hasSel = false;
+    }
+
+    document.addEventListener('mousedown', function(e) {
+      if (e.button !== 0) return;
+      var td = _getCell(e);
+      if (!td) { if (_hasSel) _clear(); return; }
+      var pos = _getPos(td);
+      if (!pos) return;
+
+      if (e.shiftKey && _start) {
+        _end = pos; _hasSel = true; _apply();
+        e.preventDefault(); return;
+      }
+
+      _clear();
+      _start = pos; _end = pos; _dragging = true; _moved = false;
+    });
+
+    document.addEventListener('mousemove', function(e) {
+      if (!_dragging || !_start) return;
+      var td = _getCell(e);
+      if (!td) return;
+      var pos = _getPos(td);
+      if (!pos) return;
+      if (pos.row === _end.row && pos.col === _end.col) return;
+      _end = pos; _moved = true;
+      if (!_rafPend) { _rafPend = true; requestAnimationFrame(_apply); }
+      e.preventDefault();
+    });
+
+    document.addEventListener('mouseup', function() {
+      if (!_dragging) return;
+      _dragging = false;
+      document.getElementById('csvTable') && document.getElementById('csvTable').classList.remove('table-selecting');
+      // Single click with no drag — don't leave a one-cell selection
+      if (!_moved) _clear();
+    });
+
+    // Ctrl/Cmd+C copies selected cells as tab-separated values
+    document.addEventListener('keydown', function(e) {
+      if (!_hasSel || !_start || !_end) return;
+      if (!(e.ctrlKey || e.metaKey) || e.key !== 'c') return;
+      var tbody = document.getElementById('csvBody');
+      if (!tbody) return;
+      var minR = Math.min(_start.row, _end.row), maxR = Math.max(_start.row, _end.row);
+      var minC = Math.min(_start.col, _end.col), maxC = Math.max(_start.col, _end.col);
+      var lines = [];
+      for (var r = minR; r <= maxR; r++) {
+        var row = tbody.rows[r]; if (!row) continue;
+        var vals = [];
+        for (var c = minC; c <= maxC; c++) {
+          vals.push((row.cells[c] ? row.cells[c].textContent.trim() : ''));
+        }
+        lines.push(vals.join('\t'));
+      }
+      var text = lines.join('\n');
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).catch(function() {});
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      e.preventDefault();
+    });
+
+    // Disable during drag to prevent text selection
+    document.addEventListener('selectstart', function(e) {
+      if (_dragging) e.preventDefault();
+    });
+
+    // Expose selection helpers for the context menu
+    window._cellSel = {
+      has: function() { return _hasSel && _start && _end; },
+      copyText: function() {
+        var tbody = document.getElementById('csvBody');
+        if (!tbody || !_start || !_end) return '';
+        var minR = Math.min(_start.row,_end.row), maxR = Math.max(_start.row,_end.row);
+        var minC = Math.min(_start.col,_end.col), maxC = Math.max(_start.col,_end.col);
+        var lines = [];
+        for (var r = minR; r <= maxR; r++) {
+          var row = tbody.rows[r]; if (!row) continue;
+          var vals = [];
+          for (var c = minC; c <= maxC; c++) { vals.push(row.cells[c] ? row.cells[c].textContent.trim() : ''); }
+          lines.push(vals.join('\t'));
+        }
+        return lines.join('\n');
+      },
+      copyJSON: function() {
+        var tbody = document.getElementById('csvBody');
+        var thead = document.getElementById('csvHead');
+        if (!tbody || !thead || !_start || !_end) return '';
+        var thCells = thead.querySelectorAll('th');
+        var colHdrs = Array.prototype.map.call(thCells, function(th) { return th.textContent.trim(); });
+        var minR = Math.min(_start.row,_end.row), maxR = Math.max(_start.row,_end.row);
+        var minC = Math.min(_start.col,_end.col), maxC = Math.max(_start.col,_end.col);
+        var rows = [];
+        for (var r = minR; r <= maxR; r++) {
+          var tr = tbody.rows[r]; if (!tr) continue;
+          var obj = {};
+          for (var c = minC; c <= maxC; c++) {
+            var key = colHdrs[c] || ('col'+c);
+            obj[key] = tr.cells[c] ? tr.cells[c].textContent.trim() : '';
+          }
+          rows.push(obj);
+        }
+        return JSON.stringify(rows.length === 1 ? rows[0] : rows, null, 2);
+      }
+    };
   })();

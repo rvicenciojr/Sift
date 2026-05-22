@@ -6,7 +6,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Sift — Windows</title>
+<title>Sift - Windows Event Viewer</title>
 <script>/* Sift build: sift-windows */
 var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":true};
 </script>
@@ -21,7 +21,7 @@ var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":tr
     --cb-os6: #E0E0DD;
     --cb-os5: #C3CAC8;
     --cb-os4: #A0AEAC;
-    --cb-os3: #778F8D;
+    --cb-os3: #466061;  /* darkened in light mode for readability on white — restored in dark mode below */
     --cb-os2: #537173;
     --cb-os1: #304D4A;
 
@@ -31,7 +31,7 @@ var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":tr
     --cb-dark-2:       #FFFFFF;
     --cb-border:       #C3CAC8;
     --cb-text:         #002E3C;
-    --cb-muted:        #537173;
+    --cb-muted:        #466061;
     --cb-text-inverse: #FFFFFF;
 
     /* Modal theme — light mode */
@@ -42,8 +42,8 @@ var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":tr
     --modal-input-bg:  rgba(0,0,0,0.05);
     --modal-input-bdr: #C3CAC8;
     --modal-text:      #002E3C;
-    --modal-muted:     #537173;
-    --modal-dim:       #778F8D;
+    --modal-muted:     #466061;
+    --modal-dim:       #5C7575;
     --modal-code-bg:   #F1EFED;
     --modal-canvas-bg: rgba(0,0,0,0.04);
 
@@ -57,6 +57,8 @@ var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":tr
 
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
+      /* Restore brand palette --cb-os3 for dark mode (light teal works on dark bg) */
+      --cb-os3:          #778F8D;
       /* Semantic UI — dark mode */
       --ctx-preview-color: #FFD700;
       --cb-black:        #0b1a22;
@@ -83,6 +85,8 @@ var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":tr
   }
 
   :root[data-theme="dark"] {
+    /* Restore brand palette --cb-os3 for dark mode (light teal works on dark bg) */
+    --cb-os3:          #778F8D;
     /* Semantic UI — dark mode */
     --ctx-preview-color: #FFD700;
     --cb-black:        #0b1a22;
@@ -132,16 +136,14 @@ var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":tr
   }
 
   header h1 {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
     color: var(--cb-yellow);
     white-space: nowrap;
     letter-spacing: 0;
-    text-transform: uppercase;
-    pointer-events: none;
+    margin-right: auto;
+    padding-left: 6px;
+    flex-shrink: 0;
   }
  
   /* ── Gear menu ── */
@@ -229,17 +231,34 @@ var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":tr
     font-size: 12px;
     cursor: pointer;
     white-space: nowrap;
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
   }
- 
-  button:hover { background: var(--cb-yellow-soft); border-color: var(--cb-yellow); color: var(--cb-ocean); }
+
+  button:hover {
+    filter: brightness(1.15);
+  }
+
+  button:active {
+    transform: translateY(1px) scale(0.98);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.25);
+  }
+  button:focus, button:focus-visible {
+    outline: none;
+    border-color: var(--cb-border);
+  }
+  button:focus-visible {
+    box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.45);
+  }
  
   .btn-export {
-    background: var(--cb-yellow-soft);
-    border-color: var(--cb-yellow);
-    color: var(--cb-white);
+    background: var(--cb-dark-2);
+    border-color: var(--cb-border);
+    color: var(--cb-text);
   }
- 
-  .btn-export:hover { background: #FFD70055; }
+
+  .btn-export:hover {
+    filter: brightness(1.15);
+  }
  
   .row-count {
     color: var(--cb-text-inverse);
@@ -279,16 +298,25 @@ var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":tr
   }
  
   .tab:hover {
-    background: var(--cb-yellow-soft);
-    border-color: var(--cb-yellow);
-    color: var(--cb-ocean);
+    filter: brightness(1.1);
   }
- 
+
   .tab.active {
     background: var(--cb-ocean);
-    border-color: var(--cb-yellow);
-    color: var(--cb-yellow);
-    font-weight: 600;
+    border: 1px solid var(--cb-border);
+    border-top: 3px solid var(--cb-yellow);
+    border-radius: 6px 6px 0 0;
+    color: var(--cb-text-inverse);
+    font-weight: 700;
+    padding: 4px 16px 6px;
+    font-size: 12.5px;
+    margin-bottom: -1px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .tab.active:hover {
+    filter: brightness(1.15);
   }
  
   .tab-add {
@@ -556,7 +584,7 @@ var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":tr
   #cpFooter button { font-size: 12px; padding: 4px 12px; }
  
   tbody tr { border-bottom: 1px solid var(--cb-border); }
-  tbody tr:hover { background: #FFD70066 !important; }
+  tbody tr:hover { background: rgba(120, 143, 141, 0.18) !important; }
  
   td {
     padding: 5px 10px;
@@ -607,10 +635,11 @@ var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":tr
 
   /* Term match emphasis within cell */
   mark {
-    background: #FFD70066;
+    background: rgba(45, 212, 191, 0.28);
     color: inherit !important;
     border-radius: 2px;
-    padding: 0 1px;
+    padding: 0 2px;
+    font-weight: 600;
   }
  
   td mark,
@@ -664,9 +693,11 @@ var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":tr
     gap: 4px;
   }
   .atb-btn.active {
-    background: var(--cb-yellow-soft) !important;
-    border-color: var(--cb-yellow) !important;
-    color: var(--cb-ocean) !important;
+    background: transparent !important;
+    border: 2px solid var(--cb-yellow) !important;
+    color: var(--cb-yellow) !important;
+    font-weight: 700;
+    padding: 2px 8px;
   }
 
   input[type="datetime-local"] {
@@ -971,14 +1002,23 @@ var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":tr
   #paginationBar {
     background: var(--cb-dark);
     border-top: 1px solid var(--cb-border);
-    padding: 7px 16px;
+    padding: 6px 16px;
     display: none;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 4px;
     flex-shrink: 0;
   }
   #paginationBar.visible { display: flex; }
+  .pg-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .pg-row-bottom {
+    padding-top: 4px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
   .pg-btn {
     background: transparent;
     border: 1px solid var(--cb-yellow);
@@ -1808,9 +1848,9 @@ var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":tr
 
   #qbDragHandle button {
     background: transparent;
-    border: 1px solid var(--cb-os1);
+    border: 1px solid rgba(255,255,255,0.18);
     border-radius: 4px;
-    color: var(--cb-os3);
+    color: var(--cb-text-inverse);
     font-size: 10px;
     padding: 2px 7px;
     cursor: pointer;
@@ -2956,6 +2996,20 @@ var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":tr
     border: 1px solid var(--cb-border);
   }
 
+  /* ── Cell selection ────────────────────────────────────────────────────────── */
+  #csvBody td.cell-selected {
+    background: rgba(65, 105, 225, 0.22) !important;
+    outline: 1px solid rgba(65, 105, 225, 0.55);
+    outline-offset: -1px;
+  }
+
+  #csvTable.table-selecting,
+  #csvTable.table-selecting * {
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: cell;
+  }
+
 
 </style>
 <!-- Compatibility check — runs before anything else -->
@@ -2980,12 +3034,10 @@ var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":tr
 
 <!-- Header Controls -->
 <header>
-  <h1>Sift</h1>
+  <h1>Sift - Windows Event Viewer</h1>
   <div class="controls">
     <button onclick="document.getElementById('fileInput').click()">📂 Open File</button>
     <input type="file" id="fileInput" accept=".csv,.evtx" multiple onchange="loadFiles(this.files)" style="display:none">
-    <button class="btn-export" onclick="exportFiltered()" id="btnExport" style="display:none">⬇ Export filtered</button>
-    <span class="row-count" id="rowCount" style="margin-left:4px"></span>
     <span id="dataSourceBadge" style="display:none;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:2px 8px;border-radius:4px;margin-left:6px"></span>
   </div>
   <div class="gear-wrap" id="gearWrap">
@@ -3020,12 +3072,11 @@ var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":tr
   <div class="atb-divider"></div>
   <button id="timelineToggle" class="atb-btn" onclick="toggleTimeline()" title="Event timeline & time range filter">📊 Timeline</button>
   <button id="bytesToggle" class="atb-btn" onclick="toggleBytesChart()" title="Bytes in/out chart">📈 Bytes</button>
+  <button class="atb-btn" onclick="qbToggle()" title="Build multi-IOC Chronicle / Defender queries">🔨 Query Builder</button>
   <div class="atb-divider" id="atbDivider1"></div>
   <button id="procTreeBtn" class="atb-btn" style="background:rgba(255,215,0,0.1);border-color:var(--cb-yellow);color:var(--cb-yellow);font-weight:700;display:none" onclick="openProcTree()">🌲 Process Tree</button>
   <button id="networkMapBtn" class="atb-btn" style="background:rgba(45,212,191,0.1);border:1px solid #2dd4bf;color:#2dd4bf;font-weight:700;display:none" onclick="openNetworkMap()">🗺 Network Map</button>
   <button id="amsiBtn" class="atb-btn" style="background:rgba(240,165,0,0.1);border:1px solid #f0a500;color:#f0a500;font-weight:700;display:none" onclick="openAmsiExtractor()">🔍 Script Decoder</button>
-  <div class="atb-divider" id="atbDivider2"></div>
-  <button class="atb-btn" onclick="qbToggle()" title="Build multi-IOC Chronicle / Defender queries">🔨 Query Builder</button>
 </div>
 
 <!-- Timeline Bar (includes time range controls) -->
@@ -3178,21 +3229,27 @@ var SIFT_FEATURES = {"chronicle":false,"defender":false,"windows":true,"evtx":tr
  
 <!-- Pagination Bar -->
 <div id="paginationBar">
-  <button class="pg-btn" id="pgFirst" onclick="goPage(1)">«</button>
-  <button class="pg-btn" id="pgPrev"  onclick="goPage(currentPage-1)">‹ Prev</button>
-  <span id="pgInfo"></span>
-  <button class="pg-btn" id="pgNext"  onclick="goPage(currentPage+1)">Next ›</button>
-  <button class="pg-btn" id="pgLast"  onclick="goPage(totalPages())">»</button>
-  <label style="color:var(--cb-text-inverse);font-size:11px">Go to</label>
-  <input type="number" id="pgJump" min="1" placeholder="#" onkeydown="if(event.key==='Enter')goPage(+this.value)">
-  <label style="color:var(--cb-text-inverse);font-size:11px;margin-left:8px">Rows/page</label>
-  <select id="pgSize" style="width:80px" onchange="currentPage=1;renderPage()">
-    <option value="200">200</option>
-    <option value="500" selected>500</option>
-    <option value="1000">1000</option>
-    <option value="5000">5000</option>
-    <option value="0">All</option>
-  </select>
+  <div class="pg-row pg-row-top">
+    <button class="pg-btn" id="pgFirst" onclick="goPage(1)">«</button>
+    <button class="pg-btn" id="pgPrev"  onclick="goPage(currentPage-1)">‹ Prev</button>
+    <span id="pgInfo"></span>
+    <button class="pg-btn" id="pgNext"  onclick="goPage(currentPage+1)">Next ›</button>
+    <button class="pg-btn" id="pgLast"  onclick="goPage(totalPages())">»</button>
+    <label style="color:var(--cb-text-inverse);font-size:11px">Go to</label>
+    <input type="number" id="pgJump" min="1" placeholder="#" onkeydown="if(event.key==='Enter')goPage(+this.value)">
+    <label style="color:var(--cb-text-inverse);font-size:11px;margin-left:8px">Rows/page</label>
+    <select id="pgSize" style="width:80px" onchange="currentPage=1;renderPage()">
+      <option value="200">200</option>
+      <option value="500" selected>500</option>
+      <option value="1000">1000</option>
+      <option value="5000">5000</option>
+      <option value="0">All</option>
+    </select>
+  </div>
+  <div class="pg-row pg-row-bottom" style="justify-content:flex-end">
+    <button class="btn-export" onclick="exportFiltered()" id="btnExport" style="display:none">⬇ Export</button>
+    <span class="row-count" id="rowCount"></span>
+  </div>
 </div>
  
 <!-- Process Tree Modal -->
@@ -4001,19 +4058,19 @@ self.onmessage = function (e) {
     if (isChronicleData) {
       dsb.textContent = 'Chronicle';
       dsb.style.display = '';
-      dsb.style.background = 'rgba(66,133,244,0.15)';
+      dsb.style.background = '#FFFFFF';
       dsb.style.border = '1px solid #4285f4';
       dsb.style.color = '#4285f4';
     } else if (isDefender) {
       dsb.textContent = 'Defender';
       dsb.style.display = '';
-      dsb.style.background = 'rgba(0,120,212,0.15)';
+      dsb.style.background = '#FFFFFF';
       dsb.style.border = '1px solid #0078d4';
       dsb.style.color = '#0078d4';
     } else if (isWindowsSecurityLog) {
       dsb.textContent = 'Windows Security';
       dsb.style.display = '';
-      dsb.style.background = 'rgba(0,188,102,0.15)';
+      dsb.style.background = '#FFFFFF';
       dsb.style.border = '1px solid #00bc66';
       dsb.style.color = '#00bc66';
     } else {
@@ -5192,6 +5249,11 @@ ${evtLine}    \$e.${udm} = "${v}"
         // Timeline/bytes are always per-tab regardless of global mode
         outgoing.timelineVisible = timelineVisible;
         outgoing.bytesVisible    = bytesVisible;
+        outgoing.hlOnly          = typeof hlOnly !== 'undefined' ? hlOnly : false;
+        outgoing.cpSortMode      = typeof cpSortMode !== 'undefined' ? cpSortMode : 'count-desc';
+        // Save overview profile state per-tab
+        outgoing.ovProfile       = (typeof _ovProfile !== 'undefined') ? _ovProfile : null;
+        outgoing.ovCustomActive  = (typeof _ovCustomActive !== 'undefined') ? _ovCustomActive : null;
         if (!globalMode) {
           // Flush any DOM-typed-but-not-yet-debounced filter values
           filterRows.forEach(row => {
@@ -5234,7 +5296,10 @@ ${evtLine}    \$e.${udm} = "${v}"
  
     // Real CSV tab - ensure table is visible again after leaving blank tabs
     document.getElementById('dropZone').style.display = 'none';
-    document.getElementById('tableWrap').style.display = 'block';
+    // Only show table if overview panel is not open
+    if (typeof overviewVisible === 'undefined' || !overviewVisible) {
+      document.getElementById('tableWrap').style.display = 'block';
+    }
    
     // Restore tab state into global variables
     allRows = tab.allRows;
@@ -5285,12 +5350,18 @@ ${evtLine}    \$e.${udm} = "${v}"
     document.getElementById('filterBar').classList.remove('hidden');
     updateProcTreeBtn();
 
-    // Reset highlight-only filter on tab switch
-    if (hlOnly) {
-      hlOnly = false;
-      const btn = document.getElementById('hlOnlyBtn');
-      if (btn) { btn.textContent = '🎯 Show highlighted'; btn.classList.remove('active'); }
+    // Restore highlight-only and column picker sort preference for this tab
+    hlOnly     = !!tab.hlOnly;
+    cpSortMode = tab.cpSortMode || 'count-desc';
+    const hlBtn = document.getElementById('hlOnlyBtn');
+    if (hlBtn) {
+      hlBtn.textContent = hlOnly ? '🎯 Showing highlighted' : '🎯 Show highlighted';
+      hlBtn.classList.toggle('active', hlOnly);
     }
+
+    // Restore overview profile state for this tab
+    if (typeof _ovProfile !== 'undefined')      _ovProfile      = tab.ovProfile      || null;
+    if (typeof _ovCustomActive !== 'undefined') _ovCustomActive = tab.ovCustomActive || null;
 
     // Timeline / bytes are always per-tab regardless of global mode
     timelineVisible = !!tab.timelineVisible;
@@ -5307,6 +5378,11 @@ ${evtLine}    \$e.${udm} = "${v}"
 
     applyFilter();
     renderColFilterChips();
+
+    // If overview is open, re-render it with the new tab's data
+    if (typeof overviewVisible !== 'undefined' && overviewVisible && typeof scheduleOverviewRender === 'function') {
+      scheduleOverviewRender();
+    }
   }
 
   function openBlankTab() {
@@ -5971,6 +6047,11 @@ ${evtLine}    \$e.${udm} = "${v}"
       input.placeholder = 'Filter value…';
       input.value       = row.value;
       input.oninput     = () => { updateRowProp(row.id, 'value', input.value); scheduleFilter(); };
+      // Mark invalid regex with red border + tooltip so it's not silent
+      if ((row.mode === 'regex' || row.mode === 'notregex') && row._reErr) {
+        input.style.borderColor = '#e83e3e';
+        input.title = 'Invalid regex: ' + row._reErr;
+      }
 
       // Remove button
       const btn = document.createElement('button');
@@ -6014,15 +6095,18 @@ ${evtLine}    \$e.${udm} = "${v}"
       case 'regex': {
         // Cache compiled regex on the filter row — only recompile when value changes
         if (!filterRow._re || filterRow._reVal !== val) {
-          try { filterRow._re = new RegExp(val, 'i'); filterRow._reVal = val; } catch(e) { filterRow._re = null; }
+          try { filterRow._re = new RegExp(val, 'i'); filterRow._reVal = val; filterRow._reErr = null; }
+          catch(e) { filterRow._re = null; filterRow._reErr = e.message; filterRow._reVal = val; }
         }
-        return filterRow._re ? filterRow._re.test(text) : false;
+        // Invalid regex passes rows through (don't silently hide everything) — UI marks the row
+        return filterRow._reErr ? true : filterRow._re.test(text);
       }
       case 'notregex': {
         if (!filterRow._re || filterRow._reVal !== val) {
-          try { filterRow._re = new RegExp(val, 'i'); filterRow._reVal = val; } catch(e) { filterRow._re = null; }
+          try { filterRow._re = new RegExp(val, 'i'); filterRow._reVal = val; filterRow._reErr = null; }
+          catch(e) { filterRow._re = null; filterRow._reErr = e.message; filterRow._reVal = val; }
         }
-        return filterRow._re ? !filterRow._re.test(text) : true;
+        return filterRow._reErr ? true : !filterRow._re.test(text);
       }
       default: return true;
     }
@@ -6035,16 +6119,18 @@ ${evtLine}    \$e.${udm} = "${v}"
      if (tab && !tab.filterEnabled) {
        rows = allRows;
      } else {
-       // Text filter rows
-       if (filterRows.some(r => r.value.trim())) {
-      rows = rows.filter(dataRow => {
-        let result = evaluateFilterRow(dataRow, filterRows[0]);
-        for (let i = 1; i < filterRows.length; i++) {
-          const next = evaluateFilterRow(dataRow, filterRows[i]);
-          result = filterRows[i].connector === 'OR' ? result || next : result && next;
-        }
-        return result;
-      });
+       // Text filter rows — only evaluate non-blank rows so a blank first row doesn't
+       // short-circuit OR logic by contributing 'true' to the chain
+       const activeFilterRows = filterRows.filter(r => r.value.trim());
+       if (activeFilterRows.length) {
+         rows = rows.filter(dataRow => {
+           let result = evaluateFilterRow(dataRow, activeFilterRows[0]);
+           for (let i = 1; i < activeFilterRows.length; i++) {
+             const next = evaluateFilterRow(dataRow, activeFilterRows[i]);
+             result = activeFilterRows[i].connector === 'OR' ? result || next : result && next;
+           }
+           return result;
+         });
        }
        // Column value filters
        const activeColFilters = Object.entries(columnFilters).filter(([,s]) => s !== null);
@@ -7067,8 +7153,22 @@ ${evtLine}    \$e.${udm} = "${v}"
       { type: 'sep' },
       { type: 'item', icon: '📋', text: 'Copy value',            fn: function() { navigator.clipboard.writeText(_ctxVal).catch(function(){}); } },
       { type: 'item', icon: '📄', text: 'Copy row as JSON',      fn: function() { ctxCopyRow('json'); } },
-      { type: 'item', icon: '📊', text: 'Copy row as CSV',       fn: function() { ctxCopyRow('csv'); } },
     ];
+
+    // Selection copy items — only shown when cells are selected
+    if (window._cellSel && window._cellSel.has()) {
+      items.push({ type: 'sep' });
+      items.push({ type: 'item', icon: '📑', text: 'Copy selection', fn: function() {
+        var text = window._cellSel.copyText();
+        navigator.clipboard.writeText(text).catch(function() {});
+        closeCellMenu();
+      }});
+      items.push({ type: 'item', icon: '{ }', text: 'Copy selection as JSON', fn: function() {
+        var text = window._cellSel.copyJSON();
+        navigator.clipboard.writeText(text).catch(function() {});
+        closeCellMenu();
+      }});
+    }
 
     if (typeof isChronicleData !== 'undefined' && isChronicleData && typeof copyYaraL === 'function') {
       items.push({ type: 'item', icon: '📝', text: 'Copy as YARA-L rule', fn: function() { copyYaraL(_ctxCol, _ctxVal); } });
@@ -7396,6 +7496,156 @@ ${evtLine}    \$e.${udm} = "${v}"
       _dragging = false;
       try { localStorage.setItem(QB_POS_KEY, JSON.stringify({ left: _panel.style.left, top: _panel.style.top })); } catch(e) {}
     });
+  })();
+
+  // ── Cell selection — Excel-style drag to select ───────────────────────────────
+  (function() {
+    var _start    = null;  // { row, col }
+    var _end      = null;
+    var _dragging = false;
+    var _hasSel   = false;
+    var _rafPend  = false;
+    var _moved    = false; // true once drag moves beyond starting cell
+
+    function _getCell(e) { return e.target.closest('#csvBody td'); }
+
+    function _getPos(td) {
+      var tbody = document.getElementById('csvBody');
+      if (!tbody) return null;
+      var row = td.closest('tr');
+      var ri  = Array.prototype.indexOf.call(tbody.rows, row);
+      var ci  = Array.prototype.indexOf.call(row.cells, td);
+      return (ri >= 0 && ci >= 0) ? { row: ri, col: ci } : null;
+    }
+
+    function _apply() {
+      _rafPend = false;
+      var tbody = document.getElementById('csvBody');
+      if (!tbody || !_start || !_end) return;
+      var minR = Math.min(_start.row, _end.row), maxR = Math.max(_start.row, _end.row);
+      var minC = Math.min(_start.col, _end.col), maxC = Math.max(_start.col, _end.col);
+      for (var r = 0; r < tbody.rows.length; r++) {
+        var cells = tbody.rows[r].cells;
+        for (var c = 0; c < cells.length; c++) {
+          cells[c].classList.toggle('cell-selected', r >= minR && r <= maxR && c >= minC && c <= maxC);
+        }
+      }
+      _hasSel = true;
+    }
+
+    function _clear() {
+      document.querySelectorAll('#csvBody td.cell-selected').forEach(function(td) { td.classList.remove('cell-selected'); });
+      _start = null; _end = null; _hasSel = false;
+    }
+
+    document.addEventListener('mousedown', function(e) {
+      if (e.button !== 0) return;
+      var td = _getCell(e);
+      if (!td) { if (_hasSel) _clear(); return; }
+      var pos = _getPos(td);
+      if (!pos) return;
+
+      if (e.shiftKey && _start) {
+        _end = pos; _hasSel = true; _apply();
+        e.preventDefault(); return;
+      }
+
+      _clear();
+      _start = pos; _end = pos; _dragging = true; _moved = false;
+    });
+
+    document.addEventListener('mousemove', function(e) {
+      if (!_dragging || !_start) return;
+      var td = _getCell(e);
+      if (!td) return;
+      var pos = _getPos(td);
+      if (!pos) return;
+      if (pos.row === _end.row && pos.col === _end.col) return;
+      _end = pos; _moved = true;
+      if (!_rafPend) { _rafPend = true; requestAnimationFrame(_apply); }
+      e.preventDefault();
+    });
+
+    document.addEventListener('mouseup', function() {
+      if (!_dragging) return;
+      _dragging = false;
+      document.getElementById('csvTable') && document.getElementById('csvTable').classList.remove('table-selecting');
+      // Single click with no drag — don't leave a one-cell selection
+      if (!_moved) _clear();
+    });
+
+    // Ctrl/Cmd+C copies selected cells as tab-separated values
+    document.addEventListener('keydown', function(e) {
+      if (!_hasSel || !_start || !_end) return;
+      if (!(e.ctrlKey || e.metaKey) || e.key !== 'c') return;
+      var tbody = document.getElementById('csvBody');
+      if (!tbody) return;
+      var minR = Math.min(_start.row, _end.row), maxR = Math.max(_start.row, _end.row);
+      var minC = Math.min(_start.col, _end.col), maxC = Math.max(_start.col, _end.col);
+      var lines = [];
+      for (var r = minR; r <= maxR; r++) {
+        var row = tbody.rows[r]; if (!row) continue;
+        var vals = [];
+        for (var c = minC; c <= maxC; c++) {
+          vals.push((row.cells[c] ? row.cells[c].textContent.trim() : ''));
+        }
+        lines.push(vals.join('\t'));
+      }
+      var text = lines.join('\n');
+      if (navigator.clipboard) {
+        navigator.clipboard.writeText(text).catch(function() {});
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = text; ta.style.cssText = 'position:fixed;opacity:0';
+        document.body.appendChild(ta); ta.select(); document.execCommand('copy');
+        document.body.removeChild(ta);
+      }
+      e.preventDefault();
+    });
+
+    // Disable during drag to prevent text selection
+    document.addEventListener('selectstart', function(e) {
+      if (_dragging) e.preventDefault();
+    });
+
+    // Expose selection helpers for the context menu
+    window._cellSel = {
+      has: function() { return _hasSel && _start && _end; },
+      copyText: function() {
+        var tbody = document.getElementById('csvBody');
+        if (!tbody || !_start || !_end) return '';
+        var minR = Math.min(_start.row,_end.row), maxR = Math.max(_start.row,_end.row);
+        var minC = Math.min(_start.col,_end.col), maxC = Math.max(_start.col,_end.col);
+        var lines = [];
+        for (var r = minR; r <= maxR; r++) {
+          var row = tbody.rows[r]; if (!row) continue;
+          var vals = [];
+          for (var c = minC; c <= maxC; c++) { vals.push(row.cells[c] ? row.cells[c].textContent.trim() : ''); }
+          lines.push(vals.join('\t'));
+        }
+        return lines.join('\n');
+      },
+      copyJSON: function() {
+        var tbody = document.getElementById('csvBody');
+        var thead = document.getElementById('csvHead');
+        if (!tbody || !thead || !_start || !_end) return '';
+        var thCells = thead.querySelectorAll('th');
+        var colHdrs = Array.prototype.map.call(thCells, function(th) { return th.textContent.trim(); });
+        var minR = Math.min(_start.row,_end.row), maxR = Math.max(_start.row,_end.row);
+        var minC = Math.min(_start.col,_end.col), maxC = Math.max(_start.col,_end.col);
+        var rows = [];
+        for (var r = minR; r <= maxR; r++) {
+          var tr = tbody.rows[r]; if (!tr) continue;
+          var obj = {};
+          for (var c = minC; c <= maxC; c++) {
+            var key = colHdrs[c] || ('col'+c);
+            obj[key] = tr.cells[c] ? tr.cells[c].textContent.trim() : '';
+          }
+          rows.push(obj);
+        }
+        return JSON.stringify(rows.length === 1 ? rows[0] : rows, null, 2);
+      }
+    };
   })();
 
 </script>
@@ -10821,6 +11071,12 @@ const MITRE_DETECTIONS = {
     /msbuild/i.test(f[i]||'') || /msbuild/i.test(fi[i]||''),
   'T1220':    (c,f,fi,p,ri,ru,rp,rk,a,ic,i) =>
     /wmic.*\/format|msxsl/i.test(c[i]||''),
+  'T1562':    (c,f,fi,p,ri,ru,rp,rk,a,ic,i) =>
+    /Set-MpPreference.*Disable|Add-MpPreference.*Exclusion/i.test(c[i]||'') ||
+    /netsh.*firewall.*disable|sc.*stop.*windefend/i.test(c[i]||'') ||
+    /wevtutil.*cl|Clear-EventLog/i.test(c[i]||'') ||
+    /auditpol.*\/set.*no.*auditing/i.test(c[i]||'') ||
+    /bcdedit.*safeboot|DisableRealtimeMonitoring|DisableBehaviorMonitoring/i.test(c[i]||''),
   'T1562.001':(c,f,fi,p,ri,ru,rp,rk,a,ic,i) =>
     /Set-MpPreference.*Disable|Add-MpPreference.*Exclusion/i.test(c[i]||'') ||
     /netsh.*firewall.*disable|sc.*stop.*windefend/i.test(c[i]||''),
@@ -11181,6 +11437,12 @@ const TECHNIQUE_PROFILES = {
     primary:   ['process', 'hostsAccounts', 'time'],
     secondary: ['activity', 'registry'],
   },
+  'T1562': {
+    label: 'Impair Defenses', icon: '🛡',
+    hint: 'AV/EDR disabled, firewall off, audit policy cleared, event logs wiped — security tools shut down before or during the attack',
+    primary:   ['process', 'activity', 'hostsAccounts'],
+    secondary: ['registry', 'time', 'procPairs'],
+  },
   'T1562.001': {
     label: 'Disable Security Tools', icon: '🛡',
     hint: 'Defender/AV disabled, firewall changes, audit policy cleared — evasion prep',
@@ -11199,6 +11461,285 @@ const TECHNIQUE_PROFILES = {
     primary:   ['process', 'network', 'hostsAccounts'],
     secondary: ['time', 'activity'],
   },
+
+  // ── Credential Access ──────────────────────────────────────────────────────
+  'T1003.002': {
+    label: 'SAM Database Dump', icon: '🔑',
+    hint: 'SAM hive access via reg save or VSS — local account hashes extracted',
+    primary:   ['process', 'hostsAccounts', 'hashes'],
+    secondary: ['activity', 'time', 'registry'],
+  },
+  'T1003.003': {
+    label: 'NTDS Dump', icon: '🔑',
+    hint: 'ntds.dit extracted via ntdsutil or VSS — full domain credential theft',
+    primary:   ['process', 'hostsAccounts', 'hashes'],
+    secondary: ['activity', 'time', 'registry'],
+  },
+  'T1110.003': {
+    label: 'Password Spraying', icon: '🔑',
+    hint: 'Single password against many accounts — source IP, targeted accounts, timing pattern',
+    primary:   ['hostsAccounts', 'activity', 'time'],
+    secondary: ['network', 'process', 'registry'],
+  },
+  'T1550.002': {
+    label: 'Pass the Hash', icon: '🔑',
+    hint: 'NTLM hash used without plaintext — source host, target, account used',
+    primary:   ['hostsAccounts', 'network', 'time'],
+    secondary: ['activity', 'process', 'registry'],
+  },
+  'T1550.003': {
+    label: 'Pass the Ticket', icon: '🔑',
+    hint: 'Kerberos ticket from another host — ticket origin, destination, account',
+    primary:   ['hostsAccounts', 'network', 'time'],
+    secondary: ['activity', 'process', 'registry'],
+  },
+  'T1558.001': {
+    label: 'Golden Ticket', icon: '🎟',
+    hint: 'Forged TGT using krbtgt hash — anomalous ticket lifetimes, unusual DC access',
+    primary:   ['hostsAccounts', 'activity', 'time'],
+    secondary: ['network', 'process', 'registry'],
+  },
+  'T1552.001': {
+    label: 'Credentials in Files', icon: '🔑',
+    hint: 'findstr/grep hunting for passwords in files — what paths searched, which host',
+    primary:   ['process', 'hostsAccounts', 'activity'],
+    secondary: ['time', 'network', 'hashes'],
+  },
+  'T1552.002': {
+    label: 'Credentials in Registry', icon: '🔑',
+    hint: 'Registry queried for stored credentials — which keys, which process read them',
+    primary:   ['registry', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'network'],
+  },
+  'T1555.003': {
+    label: 'Browser Credential Theft', icon: '🔑',
+    hint: 'Browser credential DB accessed — which browser, which process, which host',
+    primary:   ['process', 'hostsAccounts', 'hashes'],
+    secondary: ['activity', 'time', 'network'],
+  },
+
+  // ── Privilege Escalation ───────────────────────────────────────────────────
+  'T1548.002': {
+    label: 'Bypass UAC', icon: '⬆',
+    hint: 'eventvwr/fodhelper/sdclt hijacks — elevated process without UAC prompt',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'registry'],
+  },
+  'T1134.001': {
+    label: 'Token Impersonation', icon: '⬆',
+    hint: 'Token theft or impersonation — which process held the token, what it accessed next',
+    primary:   ['process', 'hostsAccounts', 'activity'],
+    secondary: ['time', 'network', 'registry'],
+  },
+  'T1134.004': {
+    label: 'Parent PID Spoofing', icon: '⬆',
+    hint: 'Process launched with a spoofed parent — hiding execution under a legitimate parent',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'hashes'],
+  },
+
+  // ── Defense Evasion ────────────────────────────────────────────────────────
+  'T1027.010': {
+    label: 'Command Obfuscation', icon: '🥷',
+    hint: 'Carets, backticks, string splitting — hiding command intent from detection',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'network'],
+    badge: 'Open Script Decoder for encoded content',
+  },
+  'T1036.003': {
+    label: 'Rename System Utility', icon: '🥷',
+    hint: 'System binary renamed to evade process name detection — check hashes against expected names',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['hashes', 'activity', 'time'],
+  },
+  'T1070.001': {
+    label: 'Clear Event Logs', icon: '🗑',
+    hint: 'wevtutil cl or Clear-EventLog — which logs cleared, which hosts, by what process',
+    primary:   ['process', 'hostsAccounts', 'time'],
+    secondary: ['activity', 'registry', 'network'],
+  },
+  'T1070.004': {
+    label: 'File Deletion', icon: '🗑',
+    hint: 'Tool cleanup after execution — what was deleted, by which process, timing',
+    primary:   ['process', 'hostsAccounts', 'time'],
+    secondary: ['activity', 'network', 'registry'],
+  },
+  'T1055.001': {
+    label: 'DLL Injection', icon: '💉',
+    hint: 'DLL loaded into remote process — which DLL, which target, which host',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'hashes'],
+  },
+  'T1055.012': {
+    label: 'Process Hollowing', icon: '💉',
+    hint: 'Legitimate process launched then replaced — suspicious parent, unexpected child behavior',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'hashes'],
+  },
+  'T1218.004': {
+    label: 'InstallUtil Proxy Exec', icon: '🔧',
+    hint: 'Microsoft-signed binary executing arbitrary .NET — which assembly, which parent',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'hashes'],
+  },
+  'T1218.005': {
+    label: 'Mshta Proxy Exec', icon: '🔧',
+    hint: 'mshta.exe loading remote HTA or inline script — what URL, what parent spawned it',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['network', 'activity', 'time'],
+  },
+  'T1218.007': {
+    label: 'Msiexec Proxy Exec', icon: '🔧',
+    hint: 'msiexec loading remote MSI or DLL — URL, quiet flags, what ran after',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['network', 'activity', 'time'],
+  },
+  'T1218.009': {
+    label: 'Regsvcs / Regasm', icon: '🔧',
+    hint: 'COM component abuse for code execution — which DLL, which parent',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'hashes'],
+  },
+  'T1218.010': {
+    label: 'Regsvr32 Proxy Exec', icon: '🔧',
+    hint: 'Squiblydoo — remote URL or local DLL via scrobj.dll, what spawned it',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['network', 'activity', 'time'],
+  },
+  'T1127.001': {
+    label: 'MSBuild Proxy Exec', icon: '🔧',
+    hint: 'MSBuild executing inline tasks with shellcode or C# — LOLBin execution chain',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'hashes'],
+  },
+  'T1562.002': {
+    label: 'Disable Event Logging', icon: '🛡',
+    hint: 'Audit policy set to no auditing — which categories disabled, which hosts',
+    primary:   ['process', 'activity', 'hostsAccounts'],
+    secondary: ['registry', 'time'],
+  },
+
+  // ── Persistence ────────────────────────────────────────────────────────────
+  'T1136.001': {
+    label: 'Local Account Created', icon: '👤',
+    hint: 'net user /add — new local account, which host, which process created it',
+    primary:   ['hostsAccounts', 'activity', 'time'],
+    secondary: ['process', 'registry', 'network'],
+  },
+  'T1136.002': {
+    label: 'Domain Account Created', icon: '👤',
+    hint: 'New domain account — target DC, account name, creating process',
+    primary:   ['hostsAccounts', 'activity', 'time'],
+    secondary: ['process', 'registry', 'network'],
+  },
+  'T1546.003': {
+    label: 'WMI Event Subscription', icon: '🔒',
+    hint: 'WMI permanent subscription — event filter, consumer, binding — stealthy persistence',
+    primary:   ['registry', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'network'],
+  },
+  'T1546.008': {
+    label: 'Accessibility Features', icon: '🔒',
+    hint: 'sethc.exe/utilman.exe replaced — backdoor accessible at login screen',
+    primary:   ['registry', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'network'],
+  },
+  'T1546.012': {
+    label: 'IFEO Injection', icon: '🔒',
+    hint: 'Image File Execution Options Debugger key — arbitrary process injected at target launch',
+    primary:   ['registry', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'network'],
+  },
+  'T1505.003': {
+    label: 'Web Shell', icon: '🕸',
+    hint: 'Web server spawning cmd/powershell — w3wp/httpd as parent, what commands ran',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['network', 'activity', 'hashes'],
+  },
+
+  // ── Discovery ──────────────────────────────────────────────────────────────
+  'T1069.001': {
+    label: 'Local Group Discovery', icon: '🔭',
+    hint: 'net localgroup / Get-LocalGroupMember — who is in Administrators locally',
+    primary:   ['hostsAccounts', 'activity', 'process'],
+    secondary: ['time', 'network', 'registry'],
+  },
+  'T1069.002': {
+    label: 'Domain Group Discovery', icon: '🔭',
+    hint: 'net group /domain / Get-ADGroup — domain group membership enumeration',
+    primary:   ['hostsAccounts', 'activity', 'process'],
+    secondary: ['time', 'network', 'registry'],
+  },
+  'T1087.001': {
+    label: 'Local Account Discovery', icon: '🔭',
+    hint: 'net user / Get-LocalUser — local account enumeration on compromised host',
+    primary:   ['hostsAccounts', 'activity', 'process'],
+    secondary: ['time', 'network', 'registry'],
+  },
+  'T1087.002': {
+    label: 'Domain Account Discovery', icon: '🔭',
+    hint: 'net user /domain / Get-ADUser / ldapsearch — domain account enumeration',
+    primary:   ['hostsAccounts', 'activity', 'process'],
+    secondary: ['time', 'network', 'registry'],
+  },
+  'T1518.001': {
+    label: 'Security Software Discovery', icon: '🔭',
+    hint: 'Querying AV/EDR presence — attacker checking defenses before deploying tools',
+    primary:   ['activity', 'hostsAccounts', 'process'],
+    secondary: ['time', 'network', 'registry'],
+  },
+
+  // ── Lateral Movement ──────────────────────────────────────────────────────
+  'T1550.002': {
+    label: 'Pass the Hash', icon: '↔',
+    hint: 'NTLM hash used without plaintext — source host, target, account',
+    primary:   ['hostsAccounts', 'network', 'time'],
+    secondary: ['activity', 'process', 'registry'],
+  },
+  'T1550.003': {
+    label: 'Pass the Ticket', icon: '↔',
+    hint: 'Kerberos ticket reused from another host — ticket origin, destination, account',
+    primary:   ['hostsAccounts', 'network', 'time'],
+    secondary: ['activity', 'process', 'registry'],
+  },
+
+  // ── Execution ──────────────────────────────────────────────────────────────
+  'T1569.002': {
+    label: 'Service Execution', icon: '⚡',
+    hint: 'Execution via sc.exe or service manager — what binary, which host, who ran it',
+    primary:   ['process', 'activity', 'hostsAccounts'],
+    secondary: ['registry', 'time', 'network'],
+  },
+
+  // ── Collection ─────────────────────────────────────────────────────────────
+  'T1560.001': {
+    label: 'Archive via Utility', icon: '📦',
+    hint: '7zip/rar/zip compressing data — what was archived, where, before exfiltration',
+    primary:   ['process', 'hostsAccounts', 'time'],
+    secondary: ['activity', 'network', 'hashes'],
+  },
+
+  // ── Command and Control ────────────────────────────────────────────────────
+  'T1071.004': {
+    label: 'DNS C2', icon: '📡',
+    hint: 'DNS tunneling or C2 over DNS — high query volume, long subdomains, unusual TLDs',
+    primary:   ['network', 'time', 'hostsAccounts'],
+    secondary: ['process', 'activity'],
+  },
+
+  // ── Exfiltration ──────────────────────────────────────────────────────────
+  'T1048.003': {
+    label: 'Exfil over Unencrypted Protocol', icon: '📤',
+    hint: 'FTP/HTTP exfiltration — destination IP, volume, which process sent it',
+    primary:   ['network', 'hostsAccounts', 'time'],
+    secondary: ['process', 'activity', 'hashes'],
+  },
+  'T1567.002': {
+    label: 'Exfil to Cloud Storage', icon: '📤',
+    hint: 'OneDrive/Dropbox/Mega upload — which process, what volume, which account',
+    primary:   ['network', 'process', 'hostsAccounts'],
+    secondary: ['time', 'activity', 'hashes'],
+  },
 };
 
 </script>
@@ -11207,10 +11748,43 @@ const TECHNIQUE_PROFILES = {
 // overview.js — Data-driven overview dashboard
 // Computation runs in a web worker; main thread only builds DOM.
 
-  var overviewVisible = false;
-  var _ovWorker       = null;
-  var _ovRenderTimer  = null;
-  var _ovProfile      = null; // null = default | tactic name | technique ID
+  var overviewVisible  = false;
+  var _ovWorker        = null;
+  var _ovRenderTimer   = null;
+  var _ovProfile       = null; // null = default | tactic name | technique ID
+  var _ovCustomActive  = null; // active custom profile { name, cards, customFields } | null
+
+  // ── All standard card definitions for the custom profile builder ──────────────
+  var CARD_DEFS = [
+    { key: 'time',          label: 'Timeline',            desc: 'First/last event and duration' },
+    { key: 'scope',         label: 'Scope',               desc: 'Device and user counts' },
+    { key: 'activity',      label: 'Activity',            desc: 'Action type frequency bar chart' },
+    { key: 'severity',      label: 'Severity',            desc: 'Alert severity breakdown' },
+    { key: 'hostsAccounts', label: 'Hosts & Accounts',    desc: 'Top devices and users' },
+    { key: 'process',       label: 'Processes',           desc: 'Top process names' },
+    { key: 'procPairs',     label: 'Process Spawn Pairs', desc: 'Parent → child process chains' },
+    { key: 'network',       label: 'Network',             desc: 'External IPs, domains, ports, beaconing' },
+    { key: 'registry',      label: 'Registry',            desc: 'Registry key modifications' },
+    { key: 'hashes',        label: 'File Hashes',         desc: 'SHA256/MD5 with VirusTotal links' },
+  ];
+
+  // ── localStorage helpers ──────────────────────────────────────────────────────
+  function _cpSave(profile) {
+    try {
+      const all = _cpAll();
+      const idx = all.findIndex(p => p.name === profile.name);
+      if (idx >= 0) all[idx] = profile; else all.push(profile);
+      localStorage.setItem('sift_custom_profiles', JSON.stringify(all));
+    } catch(e) {}
+  }
+  function _cpAll() {
+    try { return JSON.parse(localStorage.getItem('sift_custom_profiles') || '[]'); } catch(e) { return []; }
+  }
+  function _cpDelete(name) {
+    try {
+      localStorage.setItem('sift_custom_profiles', JSON.stringify(_cpAll().filter(p => p.name !== name)));
+    } catch(e) {}
+  }
 
   // ── Typeahead navigation ─────────────────────────────────────────────────────
   var _ovTypeaheadStr  = '';
@@ -11289,7 +11863,7 @@ const TECHNIQUE_PROFILES = {
     _ovHoveredList = null; _ovHoveredRegion = null;
   }
 
-  function resetOvProfile() { _ovProfile = null; }
+  function resetOvProfile() { _ovProfile = null; } // _ovCustomActive persists across tab switches — it's a view preference
 
   function _sortIndicatorsByProfile(indicators) {
     if (!_ovProfile || !indicators.length) return indicators;
@@ -11414,16 +11988,16 @@ const TECHNIQUE_PROFILES = {
     srcBadge.className = 'ov-source-badge';
     if (isChronicleData) {
       srcBadge.textContent = 'Chronicle';
-      srcBadge.style.cssText = 'background:rgba(66,133,244,0.15);border:1px solid #4285f4;color:#4285f4';
+      srcBadge.style.cssText = 'background:#FFFFFF;border:1px solid #4285f4;color:#4285f4';
     } else if (typeof isWindowsSecurityLog !== 'undefined' && isWindowsSecurityLog) {
       srcBadge.textContent = 'Windows Security';
-      srcBadge.style.cssText = 'background:rgba(0,188,102,0.15);border:1px solid #00bc66;color:#00bc66';
+      srcBadge.style.cssText = 'background:#FFFFFF;border:1px solid #00bc66;color:#00bc66';
     } else if (ptHasDefenderCols()) {
       srcBadge.textContent = 'Defender';
-      srcBadge.style.cssText = 'background:rgba(0,120,212,0.15);border:1px solid #0078d4;color:#0078d4';
+      srcBadge.style.cssText = 'background:#FFFFFF;border:1px solid #0078d4;color:#0078d4';
     } else {
       srcBadge.textContent = 'CSV';
-      srcBadge.style.cssText = 'background:rgba(120,120,120,0.15);border:1px solid var(--cb-os2);color:var(--cb-os3)';
+      srcBadge.style.cssText = 'background:#FFFFFF;border:1px solid var(--cb-os2);color:var(--cb-os2)';
     }
     hdrTitle.appendChild(srcBadge);
 
@@ -11450,13 +12024,56 @@ const TECHNIQUE_PROFILES = {
     const profileDropdown = document.createElement('div'); profileDropdown.className = 'ov-profile-dropdown';
     profileDropdown.style.display = 'none';
 
-    // Default option
-    _addProfileOption(profileDropdown, null, 'default', d.mitreResults || {}, profileBtn);
+    // ── Saved custom profiles — always at the top ─────────────────────────────
+    const saved = _cpAll();
+    if (saved.length) {
+      const savedLbl = document.createElement('div'); savedLbl.style.cssText = 'font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--cb-muted);padding:2px 10px 4px'; savedLbl.textContent = 'Custom Profiles'; profileDropdown.appendChild(savedLbl);
+      saved.forEach(sp => {
+        const opt = document.createElement('div'); opt.className = 'ov-profile-opt';
+        if (_ovCustomActive && _ovCustomActive.name === sp.name) opt.classList.add('ov-profile-opt-active');
+        opt.style.cssText = 'justify-content:space-between';
+        const left = document.createElement('div'); left.style.cssText = 'display:flex;align-items:center;gap:6px;flex:1;min-width:0;cursor:pointer';
+        const icon = document.createElement('span'); icon.textContent = '⭐'; icon.style.cssText = 'flex-shrink:0;width:16px';
+        const lbl  = document.createElement('span'); lbl.style.cssText = 'font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'; lbl.textContent = sp.name;
+        left.appendChild(icon); left.appendChild(lbl);
+        left.onclick = () => {
+          _ovCustomActive = sp; _ovProfile = null;
+          profileDropdown.style.display = 'none';
+          profileBtn.innerHTML = `⭐ <span>Investigating: <strong>${sp.name}</strong></span> ▾`;
+          scheduleOverviewRender();
+        };
+        const del = document.createElement('span');
+        del.textContent = '×'; del.title = 'Delete profile';
+        del.style.cssText = 'color:var(--cb-muted);cursor:pointer;padding:0 4px;font-size:13px;flex-shrink:0';
+        del.onmouseover = () => del.style.color = '#e83e3e';
+        del.onmouseout  = () => del.style.color = '';
+        del.onclick = e => { e.stopPropagation(); _cpDelete(sp.name); if (_ovCustomActive && _ovCustomActive.name === sp.name) { _ovCustomActive = null; profileBtn.innerHTML = `🔍 <span>Investigating: <strong>General</strong></span> ▾`; } scheduleOverviewRender(); };
+        opt.appendChild(left); opt.appendChild(del);
+        profileDropdown.appendChild(opt);
+      });
+      const sepS = document.createElement('div'); sepS.style.cssText = 'border-top:1px solid var(--cb-border);margin:4px 0'; profileDropdown.appendChild(sepS);
+    }
+
+    // ── Build custom profile entry ──
+    const customOpt = document.createElement('div'); customOpt.className = 'ov-profile-opt';
+    customOpt.style.cssText = 'color:var(--cb-yellow)';
+    customOpt.innerHTML = '<span style="flex-shrink:0;width:16px">＋</span><span style="font-size:12px">Build custom profile…</span>';
+    customOpt.onclick = () => { profileDropdown.style.display = 'none'; _openCustomProfileBuilder(profileBtn); };
+    profileDropdown.appendChild(customOpt);
+
+    // ── Separator then standard profiles ──────────────────────────────────────
     const sep = document.createElement('div'); sep.style.cssText = 'border-top:1px solid var(--cb-border);margin:4px 0'; profileDropdown.appendChild(sep);
+
+    // General
+    _addProfileOption(profileDropdown, null, 'default', d.mitreResults || {}, profileBtn);
+    const sepT = document.createElement('div'); sepT.style.cssText = 'border-top:1px solid var(--cb-border);margin:4px 0'; profileDropdown.appendChild(sepT);
+
     // Tactic options
+    const tacticLbl = document.createElement('div'); tacticLbl.style.cssText = 'font-size:9px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--cb-muted);padding:2px 10px 4px'; tacticLbl.textContent = 'Tactic'; profileDropdown.appendChild(tacticLbl);
     const tacticOrder = ['Initial Access','Execution','Persistence','Privilege Escalation','Defense Evasion',
       'Credential Access','Discovery','Lateral Movement','Collection','Command and Control','Exfiltration','Impact'];
     tacticOrder.forEach(tac => _addProfileOption(profileDropdown, tac, 'tactic', d.mitreResults || {}, profileBtn));
+
     // Technique overrides with hits
     const techHits = Object.keys(d.mitreResults || {}).filter(id => TECHNIQUE_PROFILES && TECHNIQUE_PROFILES[id]);
     if (techHits.length) {
@@ -11523,26 +12140,28 @@ const TECHNIQUE_PROFILES = {
 
     panel.appendChild(hdr);
 
-    // ── ATT&CK row: Coverage (3/4) + TTP Selector (1/4) — always at top ─────────
-    const attackRow = document.createElement('div'); attackRow.className = 'ov-row';
-    const coverageCard = buildMitreSummaryCard(d.mitreResults || {});
-    coverageCard.style.flex = '3';
-    attackRow.appendChild(coverageCard);
-    const ttpCard = buildMitreTtpSelector(d.mitreResults || {});
-    ttpCard.style.flex = '1'; ttpCard.style.minWidth = '200px';
-    attackRow.appendChild(ttpCard);
-    panel.appendChild(attackRow);
+    // ── ATT&CK row: Coverage + TTP Selector — hidden in custom profile mode ──────
+    if (!_ovCustomActive) {
+      const attackRow = document.createElement('div'); attackRow.className = 'ov-row';
+      const coverageCard = buildMitreSummaryCard(d.mitreResults || {});
+      coverageCard.style.flex = '3';
+      attackRow.appendChild(coverageCard);
+      const ttpCard = buildMitreTtpSelector(d.mitreResults || {});
+      ttpCard.style.flex = '1'; ttpCard.style.minWidth = '200px';
+      attackRow.appendChild(ttpCard);
+      panel.appendChild(attackRow);
 
-    // ── TTP context card — full investigative detail for active technique ────────
-    if (d.ttpContext && d.ttpContext.records && d.ttpContext.records.length) {
-      panel.appendChild(buildTtpContextCard(d.ttpContext, s));
+      // TTP context card — full investigative detail for active technique
+      if (d.ttpContext && d.ttpContext.records && d.ttpContext.records.length) {
+        panel.appendChild(buildTtpContextCard(d.ttpContext, s));
+      }
     }
 
-    // ── Feature 1: Event Frequency Timeline ───────────────────────────────────────
-    if (d.freqTimeline) panel.appendChild(buildFreqTimelineCard(d.freqTimeline));
+    // ── Feature 1: Event Frequency Timeline — suppressed in custom profiles ───────
+    if (!_ovCustomActive && d.freqTimeline) panel.appendChild(buildFreqTimelineCard(d.freqTimeline));
 
-    // ── Feature 2: Top-N Offenders ────────────────────────────────────────────────
-    const topNCard = d.topN ? buildTopNCard(d.topN) : null;
+    // ── Feature 2: Top-N Offenders — suppressed in custom profiles ────────────────
+    const topNCard = (!_ovCustomActive && d.topN) ? buildTopNCard(d.topN) : null;
     if (topNCard) panel.appendChild(topNCard);
 
     // ── Build all available data cards ───────────────────────────────────────────
@@ -11561,20 +12180,39 @@ const TECHNIQUE_PROFILES = {
     if (d.registry)   allCards.registry = buildRegistryCard(d.registry, s);
     if (d.hashes)     allCards.hashes   = buildHashesCard(d.hashes, s);
 
-    // ── Windows Security Log cards — ordered by active investigation profile ─────
-    if (d.winSec && typeof isWindowsSecurityLog !== 'undefined' && isWindowsSecurityLog) {
+    // ── When a custom profile is active, strip allCards to only selected keys ────
+    if (_ovCustomActive) {
+      const selected = new Set(_ovCustomActive.cards || []);
+      Object.keys(allCards).forEach(k => { if (!selected.has(k)) delete allCards[k]; });
+    }
+
+    // ── Windows Security Log cards — only when no custom profile active ───────────
+    if (!_ovCustomActive && d.winSec && typeof isWindowsSecurityLog !== 'undefined' && isWindowsSecurityLog) {
       _layoutWinSecCards(panel, d.winSec, s, _ovProfile);
     }
 
     // ── Layout generic cards by active profile ────────────────────────────────────
     _layoutCards(panel, allCards, profileDef);
 
+    // ── Custom field cards from active custom profile ──────────────────────────
+    const _customFields = _ovCustomActive ? (_ovCustomActive.customFields || []) : [];
+    if (_customFields.length) {
+      const cfRow = document.createElement('div'); cfRow.className = 'ov-row';
+      _customFields.forEach(col => {
+        const card = buildCustomFieldCard(col, rows);
+        if (card) cfRow.appendChild(card);
+      });
+      if (cfRow.children.length) panel.appendChild(cfRow);
+    }
+
     // ── Feature 4: Attack Chain Strip ────────────────────────────────────────────
     const chainCard = d.attackChain ? buildAttackChainCard(d.attackChain, s) : null;
     if (chainCard) panel.appendChild(chainCard);
 
-    // Notable indicators — always shown, collapsible, sorted by active profile
-    panel.appendChild(buildIndicatorsCard(_sortIndicatorsByProfile(d.indicators || []), s));
+    // Notable indicators — suppressed in custom profiles, otherwise always shown
+    if (!_ovCustomActive) {
+      panel.appendChild(buildIndicatorsCard(_sortIndicatorsByProfile(d.indicators || []), s));
+    }
 
     // Generic fallback
     if (!ptHasDefenderCols() && !isChronicleData && !(typeof isWindowsSecurityLog !== 'undefined' && isWindowsSecurityLog))
@@ -11587,6 +12225,10 @@ const TECHNIQUE_PROFILES = {
 
   // ── Profile helpers ───────────────────────────────────────────────────────────
   function _ovGetProfileDef() {
+    if (_ovCustomActive) {
+      const cards = _ovCustomActive.cards || [];
+      return { label: _ovCustomActive.name, icon: '⭐', hint: 'Custom profile', primary: cards.slice(0, 4), secondary: cards.slice(4) };
+    }
     if (!_ovProfile) return (typeof TACTIC_PROFILES !== 'undefined' && TACTIC_PROFILES['default']) || { label:'General', icon:'🔍', hint:'', primary:['time','scope','activity','severity'], secondary:['hostsAccounts','process','procPairs','network','registry','hashes'] };
     if (typeof TECHNIQUE_PROFILES !== 'undefined' && TECHNIQUE_PROFILES[_ovProfile])
       return TECHNIQUE_PROFILES[_ovProfile];
@@ -11599,7 +12241,8 @@ const TECHNIQUE_PROFILES = {
     const primary   = (profileDef.primary   || []).filter(k => cards[k]);
     const secondary = (profileDef.secondary || []).filter(k => cards[k]);
     const used      = new Set([...primary, ...secondary]);
-    const remaining = Object.keys(cards).filter(k => !used.has(k));
+    // Only append remaining cards when NOT in a custom profile — custom profiles show exactly what was selected
+    const remaining = _ovCustomActive ? [] : Object.keys(cards).filter(k => !used.has(k));
 
     // Primary row
     if (primary.length) {
@@ -11650,6 +12293,7 @@ const TECHNIQUE_PROFILES = {
     opt.appendChild(icon); opt.appendChild(lbl); opt.appendChild(cnt);
     opt.onclick = () => {
       _ovProfile = id;
+      _ovCustomActive = null; // clear any active custom profile when switching to a standard profile
       dropdown.style.display = 'none';
       profileBtn.innerHTML = `${def.icon} <span>Investigating: <strong>${def.label}</strong></span> ▾`;
       scheduleOverviewRender();
@@ -12825,19 +13469,39 @@ const TECHNIQUE_PROFILES = {
   }
 
   // ── Card: ATT&CK auto-summary ────────────────────────────────────────────────
+  // Returns the active tactic name — null if General or a technique is selected, tactic string only when a tactic is directly chosen
+  function _getActiveTactic() {
+    if (!_ovProfile) return null;
+    if (typeof TACTIC_PROFILES !== 'undefined' && TACTIC_PROFILES[_ovProfile]) return _ovProfile;
+    if (typeof MITRE_TECHNIQUES !== 'undefined') {
+      const tech = MITRE_TECHNIQUES.find(t => t.id === _ovProfile);
+      if (tech) return tech.tactic;
+    }
+    return null;
+  }
+
+  // Like _getActiveTactic but only returns a value when a tactic is directly selected —
+  // technique selections return null so the coverage card shows all tactics
+  function _getDirectTactic() {
+    if (!_ovProfile) return null;
+    if (typeof TACTIC_PROFILES !== 'undefined' && TACTIC_PROFILES[_ovProfile]) return _ovProfile;
+    return null;
+  }
+
   function buildMitreSummaryCard(mitreResults) {
+    const activeTactic = _getDirectTactic(); // only filter when a tactic is directly selected, not a technique
     const card = document.createElement('div'); card.className = 'ov-card ov-card-full';
     const title = document.createElement('div'); title.className = 'ov-card-title';
     title.textContent = 'ATT&CK Coverage';
     const sub = document.createElement('span'); sub.className = 'ov-card-sub';
-    sub.textContent = 'Automatically mapped from detected activity';
+    sub.textContent = activeTactic ? activeTactic : 'Automatically mapped from detected activity';
+    if (activeTactic) sub.style.color = tacticColor(activeTactic);
     title.appendChild(sub); card.appendChild(title);
 
-    // Group technique results by tactic
+    // ── Default view — all tactics summary (filtered to active tactic if set) ──
     const tacticMap = {};
     Object.entries(mitreResults).forEach(([id, count]) => {
-      const tech = (typeof MITRE_TECHNIQUES !== 'undefined')
-        ? MITRE_TECHNIQUES.find(t => t.id === id) : null;
+      const tech = (typeof MITRE_TECHNIQUES !== 'undefined') ? MITRE_TECHNIQUES.find(t => t.id === id) : null;
       const tactic = tech ? tech.tactic : 'Unknown';
       if (!tacticMap[tactic]) tacticMap[tactic] = { total: 0, techs: [] };
       tacticMap[tactic].total += count;
@@ -12846,16 +13510,14 @@ const TECHNIQUE_PROFILES = {
 
     const tacticOrder = ['Execution','Persistence','Privilege Escalation','Defense Evasion',
       'Credential Access','Discovery','Lateral Movement','Collection','Command and Control','Exfiltration','Impact','Initial Access'];
-    const sorted = tacticOrder.filter(t => tacticMap[t]).concat(
-      Object.keys(tacticMap).filter(t => !tacticOrder.includes(t))
-    );
+    const allSorted = tacticOrder.filter(t => tacticMap[t]).concat(Object.keys(tacticMap).filter(t => !tacticOrder.includes(t)));
+    // When a tactic is active, show only that bar
+    const sorted = activeTactic ? allSorted.filter(t => t === activeTactic) : allSorted;
 
     if (!sorted.length) {
-      const empty = document.createElement('div');
-      empty.style.cssText = 'color:var(--cb-muted);font-size:12px;padding:8px 0';
+      const empty = document.createElement('div'); empty.style.cssText = 'color:var(--cb-muted);font-size:12px;padding:8px 0';
       empty.textContent = 'No matching ATT&CK techniques detected in this dataset.';
-      card.appendChild(empty);
-      return card;
+      card.appendChild(empty); return card;
     }
 
     const maxTotal = Math.max(...sorted.map(t => tacticMap[t].total));
@@ -12865,40 +13527,23 @@ const TECHNIQUE_PROFILES = {
       const entry = tacticMap[tactic];
       const topTechs = entry.techs.sort((a, b) => b.count - a.count).slice(0, 3);
       const pct = Math.max(4, Math.round((entry.total / maxTotal) * 100));
-
       const row = document.createElement('div'); row.className = 'ov-mitre-summary-row';
-
-      const tacticEl = document.createElement('span'); tacticEl.className = 'ov-mitre-tactic-label';
-      tacticEl.textContent = tactic; tacticEl.title = tactic;
+      const tacticEl = document.createElement('span'); tacticEl.className = 'ov-mitre-tactic-label'; tacticEl.textContent = tactic; tacticEl.title = tactic;
       row.appendChild(tacticEl);
-
       const barWrap = document.createElement('div'); barWrap.className = 'ov-mitre-bar-wrap';
-      const bar = document.createElement('div'); bar.className = 'ov-mitre-bar';
-      bar.style.width = pct + '%';
-      bar.style.background = tacticColor(tactic);
+      const bar = document.createElement('div'); bar.className = 'ov-mitre-bar'; bar.style.width = pct+'%'; bar.style.background = tacticColor(tactic);
       barWrap.appendChild(bar); row.appendChild(barWrap);
-
       const techPills = document.createElement('div'); techPills.className = 'ov-mitre-pills';
       topTechs.forEach(t => {
-        const pill = document.createElement('span'); pill.className = 'ov-mitre-pill';
-        pill.textContent = t.id;
-        pill.title = t.name + ' — ' + t.count.toLocaleString() + ' events';
-        pill.style.cursor = 'pointer';
+        const pill = document.createElement('span'); pill.className = 'ov-mitre-pill'; pill.textContent = t.id;
+        pill.title = t.name+' — '+t.count.toLocaleString()+' events'; pill.style.cursor = 'pointer';
         pill.onclick = () => addTtpFilterKeepOverview(t.id);
-        pill.addEventListener('contextmenu', e => { e.preventDefault(); addTtpFilterKeepOverview(t.id); });
         techPills.appendChild(pill);
       });
-      if (entry.techs.length > 3) {
-        const more = document.createElement('span'); more.className = 'ov-mitre-pill ov-mitre-pill-more';
-        more.textContent = '+' + (entry.techs.length - 3) + ' more';
-        techPills.appendChild(more);
-      }
+      if (entry.techs.length > 3) { const more = document.createElement('span'); more.className = 'ov-mitre-pill ov-mitre-pill-more'; more.textContent = '+'+(entry.techs.length-3)+' more'; techPills.appendChild(more); }
       row.appendChild(techPills);
-
-      const cnt = document.createElement('span'); cnt.className = 'ov-mitre-total';
-      cnt.textContent = entry.total.toLocaleString();
+      const cnt = document.createElement('span'); cnt.className = 'ov-mitre-total'; cnt.textContent = entry.total.toLocaleString();
       row.appendChild(cnt);
-
       grid.appendChild(row);
     });
 
@@ -12908,39 +13553,32 @@ const TECHNIQUE_PROFILES = {
 
   // ── Card: ATT&CK TTP selector ────────────────────────────────────────────────
   function buildMitreTtpSelector(mitreResults) {
+    const activeTactic = _getDirectTactic(); // only narrow to one tactic when explicitly selected, not via technique
     const wrapper = document.createElement('div'); wrapper.className = 'ov-card ov-card-full';
     wrapper.addEventListener('mouseenter', () => { _ovHoveredRegion = 'ttp'; _ovHoveredList = null; });
     wrapper.addEventListener('mouseleave', () => { if (_ovHoveredRegion === 'ttp') _ovHoveredRegion = null; });
     const headerRow = document.createElement('div'); headerRow.className = 'ov-card-title';
-    headerRow.style.cursor = 'pointer';
 
     const titleSpan = document.createElement('span'); titleSpan.textContent = 'TTP Selector';
-    // Expand All / Collapse All buttons
+
+    // ── Default view — tactic accordion ──────────────────────────────────────
+    headerRow.style.cursor = 'pointer';
     const expandAllBtn = document.createElement('button');
     expandAllBtn.style.cssText = 'font-size:9px;padding:1px 6px;margin-left:auto;background:transparent;border:1px solid var(--cb-os2);border-radius:3px;color:var(--cb-os3);cursor:pointer';
-    expandAllBtn.textContent = '⊞ All';
-    expandAllBtn.title = 'Expand all tactics';
+    expandAllBtn.textContent = '⊞ All'; expandAllBtn.title = 'Expand all tactics';
     const collapseAllBtn = document.createElement('button');
     collapseAllBtn.style.cssText = 'font-size:9px;padding:1px 6px;background:transparent;border:1px solid var(--cb-os2);border-radius:3px;color:var(--cb-os3);cursor:pointer';
-    collapseAllBtn.textContent = '⊟ All';
-    collapseAllBtn.title = 'Collapse all tactics';
-    const chevron = document.createElement('span');
-    chevron.style.cssText = 'font-size:10px;color:var(--cb-os3);margin-left:6px';
-    chevron.textContent = '▾';
+    collapseAllBtn.textContent = '⊟ All'; collapseAllBtn.title = 'Collapse all tactics';
+    const chevron = document.createElement('span'); chevron.style.cssText = 'font-size:10px;color:var(--cb-os3);margin-left:6px'; chevron.textContent = '▾';
 
     headerRow.appendChild(titleSpan); headerRow.appendChild(expandAllBtn); headerRow.appendChild(collapseAllBtn); headerRow.appendChild(chevron);
     wrapper.appendChild(headerRow);
 
-    // Start expanded
     const body = document.createElement('div');
-
-    // Compact search + hit count
     const searchInput = document.createElement('input'); searchInput.type = 'text';
-    searchInput.placeholder = 'Search ID or name…';
-    searchInput.className = 'ov-ttp-search';
+    searchInput.placeholder = 'Search ID or name…'; searchInput.className = 'ov-ttp-search';
     searchInput.style.cssText = 'width:100%;margin:8px 0 6px;box-sizing:border-box';
-    const hitCount = document.createElement('div'); hitCount.className = 'ov-ttp-hit-count';
-    hitCount.style.marginBottom = '6px';
+    const hitCount = document.createElement('div'); hitCount.className = 'ov-ttp-hit-count'; hitCount.style.marginBottom = '6px';
     const hitN = Object.keys(mitreResults).length;
     hitCount.textContent = hitN ? hitN + ' technique' + (hitN !== 1 ? 's' : '') + ' detected — click a tactic to expand' : 'No techniques detected in current data';
     body.appendChild(searchInput);
@@ -13060,6 +13698,20 @@ const TECHNIQUE_PROFILES = {
       tacticSections.push({ section, techList, tacticChevron, tactic });
     });
 
+    // When a tactic is active: hide all other sections, expand the matching one
+    if (activeTactic) {
+      expandAllBtn.style.display = 'none';
+      collapseAllBtn.style.display = 'none';
+      tacticSections.forEach(({ section, techList, tacticChevron, tactic }) => {
+        if (tactic === activeTactic) {
+          techList.style.display = 'block';
+          tacticChevron.textContent = '▾';
+        } else {
+          section.style.display = 'none';
+        }
+      });
+    }
+
     // Expand All / Collapse All
     expandAllBtn.onclick = e => {
       e.stopPropagation();
@@ -13074,17 +13726,19 @@ const TECHNIQUE_PROFILES = {
       });
     };
 
-    // Search handler
+    // Search handler — respects active tactic filter (won't re-show hidden sections)
     searchInput.oninput = () => {
       const q = searchInput.value.trim().toLowerCase();
       if (!q) {
         tacticSections.forEach(({ section, techList, tacticChevron, tactic }) => {
+          if (activeTactic && tactic !== activeTactic) return; // keep hidden
           section.style.display = '';
           techList.querySelectorAll('.ov-ttp-tech-row,.ov-ttp-sub-row').forEach(r => r.style.display = '');
         });
         return;
       }
-      tacticSections.forEach(({ section, techList, tacticChevron }) => {
+      tacticSections.forEach(({ section, techList, tacticChevron, tactic }) => {
+        if (activeTactic && tactic !== activeTactic) return; // keep hidden
         let anyVisible = false;
         techList.querySelectorAll('.ov-ttp-tech-row,.ov-ttp-sub-row').forEach(r => {
           const match = (r.dataset.techId||'').toLowerCase().includes(q) || (r.dataset.techName||'').includes(q);
@@ -13331,6 +13985,233 @@ const TECHNIQUE_PROFILES = {
     return wrap;
   }
 
+  // ── Card: custom pinned field ─────────────────────────────────────────────────
+  function buildCustomFieldCard(colName, rows) {
+    const counts = {};
+    rows.forEach(row => { const v = (row[colName]||'').trim(); if (v) counts[v] = (counts[v]||0)+1; });
+    const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,25);
+    if (!sorted.length) return null;
+    const card = document.createElement('div'); card.className = 'ov-card'; card.style.position = 'relative';
+    const title = document.createElement('div'); title.className = 'ov-card-title'; title.style.paddingRight = '24px';
+    const short = colName.length > 32 ? '…'+colName.slice(-30) : colName;
+    title.textContent = short; title.title = colName;
+    const sub = document.createElement('span'); sub.className = 'ov-card-sub';
+    sub.textContent = Object.keys(counts).length.toLocaleString()+' unique'; title.appendChild(sub);
+    card.appendChild(title);
+    card.appendChild(ovScrollList(sorted, ([val,count]) => ovRow(colName, val, val, count.toLocaleString())));
+    return card;
+  }
+
+  // ── Custom profile builder modal ──────────────────────────────────────────────
+  function _openCustomProfileBuilder(profileBtn) {
+    // Remove any existing builder
+    const existing = document.getElementById('sift-cpb-modal');
+    if (existing) existing.remove();
+
+    const initial = _ovCustomActive || { name: '', cards: ['hostsAccounts','activity','process','procPairs','network','time'], customFields: [] };
+
+    const overlay = document.createElement('div'); overlay.id = 'sift-cpb-modal';
+    overlay.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:600;display:flex;align-items:center;justify-content:center;backdrop-filter:blur(3px)';
+    overlay.onclick = e => { if (e.target === overlay) overlay.remove(); };
+
+    const box = document.createElement('div');
+    box.style.cssText = 'background:var(--modal-bg);border:1px solid var(--cb-yellow);border-radius:10px;width:520px;max-width:95vw;max-height:85vh;display:flex;flex-direction:column;box-shadow:0 24px 64px rgba(0,0,0,0.7)';
+
+    // Header
+    const hdr = document.createElement('div');
+    hdr.style.cssText = 'display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--cb-os1);background:var(--cb-dark);border-radius:10px 10px 0 0';
+    const hdrTitle = document.createElement('span');
+    hdrTitle.style.cssText = 'font-size:14px;font-weight:700;color:var(--cb-yellow)';
+    hdrTitle.textContent = '⭐ Custom Profile Builder';
+    const closeBtn = document.createElement('button');
+    closeBtn.textContent = '✕'; closeBtn.style.cssText = 'margin-left:auto;background:none;border:none;color:var(--cb-muted);font-size:15px;cursor:pointer;padding:0 4px';
+    closeBtn.onclick = () => overlay.remove();
+    hdr.appendChild(hdrTitle); hdr.appendChild(closeBtn);
+    box.appendChild(hdr);
+
+    // Body
+    const body = document.createElement('div');
+    body.style.cssText = 'overflow-y:auto;padding:18px;display:flex;flex-direction:column;gap:18px;flex:1';
+
+    // ── Section 1: Standard cards ──
+    const sec1 = document.createElement('div');
+    const sec1Hdr = document.createElement('div'); sec1Hdr.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--cb-muted);margin-bottom:10px';
+    sec1Hdr.textContent = 'Standard Cards — select and order'; sec1.appendChild(sec1Hdr);
+
+    const sub1 = document.createElement('div'); sub1.style.cssText = 'font-size:10px;color:var(--cb-muted);margin-bottom:10px';
+    sub1.textContent = 'First 4 checked = primary row (top) · rest = secondary rows below'; sec1.appendChild(sub1);
+
+    let selectedCards = [...(initial.cards || [])];
+
+    const cardGrid = document.createElement('div');
+    cardGrid.style.cssText = 'display:grid;grid-template-columns:1fr 1fr;gap:6px';
+
+    const rebuildGrid = () => {
+      cardGrid.innerHTML = '';
+      // Show checked first (in order), then unchecked
+      const checked   = selectedCards.filter(k => CARD_DEFS.find(d => d.key === k));
+      const unchecked = CARD_DEFS.filter(d => !selectedCards.includes(d.key));
+      const ordered   = [...checked.map(k => CARD_DEFS.find(d => d.key === k)), ...unchecked];
+
+      ordered.forEach((def, idx) => {
+        const isChecked = selectedCards.includes(def.key);
+        const pos = isChecked ? selectedCards.indexOf(def.key) + 1 : null;
+
+        const item = document.createElement('div');
+        item.style.cssText = `display:flex;align-items:center;gap:8px;padding:7px 10px;border-radius:6px;cursor:pointer;border:1px solid ${isChecked ? 'rgba(255,215,0,0.4)' : 'var(--cb-os1)'};background:${isChecked ? 'rgba(255,215,0,0.06)' : 'transparent'};transition:all .15s`;
+        item.onmouseover = () => { if (!isChecked) item.style.background = 'rgba(255,255,255,0.04)'; };
+        item.onmouseout  = () => { if (!isChecked) item.style.background = 'transparent'; };
+
+        if (pos) {
+          const badge = document.createElement('span');
+          badge.style.cssText = `font-size:9px;font-weight:700;background:${pos <= 4 ? 'rgba(255,215,0,0.2)' : 'rgba(100,100,100,0.2)'};color:${pos <= 4 ? 'var(--cb-yellow)' : 'var(--cb-muted)'};padding:1px 5px;border-radius:3px;min-width:18px;text-align:center;flex-shrink:0`;
+          badge.textContent = pos <= 4 ? 'P'+pos : 'S'+(pos-4);
+          item.appendChild(badge);
+        } else {
+          const spacer = document.createElement('span'); spacer.style.cssText = 'width:24px;flex-shrink:0'; item.appendChild(spacer);
+        }
+
+        const lbl = document.createElement('div'); lbl.style.cssText = 'flex:1;min-width:0';
+        const name = document.createElement('div'); name.style.cssText = `font-size:11px;font-weight:600;color:${isChecked ? 'var(--modal-text)' : 'var(--cb-muted)'}`;
+        name.textContent = def.label;
+        const desc = document.createElement('div'); desc.style.cssText = 'font-size:9px;color:var(--cb-muted);margin-top:1px'; desc.textContent = def.desc;
+        lbl.appendChild(name); lbl.appendChild(desc); item.appendChild(lbl);
+
+        if (isChecked) {
+          const mv = document.createElement('span'); mv.style.cssText = 'font-size:11px;color:var(--cb-muted);cursor:pointer;flex-shrink:0;padding:0 2px';
+          mv.textContent = '↑↓'; mv.title = 'Move up/down';
+          mv.onclick = e => {
+            e.stopPropagation();
+            const i = selectedCards.indexOf(def.key);
+            if (i > 0) { selectedCards.splice(i,1); selectedCards.splice(i-1,0,def.key); rebuildGrid(); }
+          };
+          item.appendChild(mv);
+        }
+
+        item.onclick = () => {
+          if (selectedCards.includes(def.key)) selectedCards = selectedCards.filter(k => k !== def.key);
+          else selectedCards.push(def.key);
+          rebuildGrid();
+        };
+
+        cardGrid.appendChild(item);
+      });
+    };
+    rebuildGrid();
+    sec1.appendChild(cardGrid);
+    body.appendChild(sec1);
+
+    // ── Section 2: Custom field cards ──
+    const sec2 = document.createElement('div');
+    const sec2Hdr = document.createElement('div'); sec2Hdr.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--cb-muted);margin-bottom:10px';
+    sec2Hdr.textContent = 'Custom Field Cards'; sec2.appendChild(sec2Hdr);
+
+    let customFields = [...(initial.customFields || [])];
+    const chipArea = document.createElement('div'); chipArea.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px';
+
+    const rebuildChips = () => {
+      chipArea.innerHTML = '';
+      customFields.forEach(col => {
+        const chip = document.createElement('span');
+        chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 8px;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.35);border-radius:4px;color:var(--cb-yellow)';
+        const txt = document.createElement('span'); txt.textContent = col.length > 24 ? col.slice(0,22)+'…' : col; txt.title = col;
+        const rm = document.createElement('span'); rm.textContent = '×'; rm.style.cursor = 'pointer'; rm.style.opacity = '0.6';
+        rm.onclick = () => { customFields = customFields.filter(f => f !== col); rebuildChips(); };
+        chip.appendChild(txt); chip.appendChild(rm); chipArea.appendChild(chip);
+      });
+      if (!customFields.length) {
+        const empty = document.createElement('span'); empty.style.cssText = 'font-size:11px;color:var(--cb-muted)'; empty.textContent = 'No custom fields added'; chipArea.appendChild(empty);
+      }
+    };
+    rebuildChips();
+    sec2.appendChild(chipArea);
+
+    // Field picker dropdown
+    const fpWrap = document.createElement('div'); fpWrap.style.cssText = 'position:relative;display:inline-block';
+    const fpBtn = document.createElement('button');
+    fpBtn.textContent = '＋ Add field';
+    fpBtn.style.cssText = 'font-size:11px;padding:4px 10px;background:transparent;border:1px solid var(--cb-os1);border-radius:4px;color:var(--cb-text-inverse);cursor:pointer';
+    const fpPanel = document.createElement('div');
+    fpPanel.style.cssText = 'display:none;position:absolute;left:0;top:calc(100% + 4px);background:var(--modal-bg);border:1px solid var(--cb-os1);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,0.5);z-index:700;width:220px;flex-direction:column;max-height:240px';
+    const fpSearch = document.createElement('input'); fpSearch.type='text'; fpSearch.placeholder='Search columns…';
+    fpSearch.style.cssText = 'margin:8px;padding:4px 8px;background:rgba(0,0,0,0.3);border:1px solid var(--cb-os1);border-radius:4px;color:var(--cb-text-inverse);font-size:11px;outline:none';
+    const fpList = document.createElement('div'); fpList.style.cssText = 'overflow-y:auto;max-height:180px;padding-bottom:4px';
+
+    const buildFpList = (filter) => {
+      fpList.innerHTML = '';
+      const allCols = (typeof headers !== 'undefined' ? headers : []).filter(h => h&&h.trim());
+      const filtered = filter ? allCols.filter(h=>h.toLowerCase().includes(filter.toLowerCase())) : allCols;
+      filtered.forEach(col => {
+        const row = document.createElement('div');
+        row.style.cssText = 'font-size:11px;padding:5px 12px;cursor:pointer;display:flex;align-items:center;gap:6px';
+        row.onmouseover = () => row.style.background='rgba(255,215,0,0.08)';
+        row.onmouseout  = () => row.style.background='';
+        const already = customFields.includes(col);
+        const chk = document.createElement('span'); chk.style.cssText='font-size:10px;width:12px;color:var(--cb-yellow)'; chk.textContent=already?'✓':'';
+        const lbl = document.createElement('span'); lbl.style.cssText=`flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${already?'var(--cb-yellow)':'var(--modal-text)'}`;
+        lbl.textContent=col; lbl.title=col;
+        row.appendChild(chk); row.appendChild(lbl);
+        row.onclick = () => {
+          if (customFields.includes(col)) customFields=customFields.filter(f=>f!==col);
+          else customFields.push(col);
+          rebuildChips(); buildFpList(fpSearch.value);
+        };
+        fpList.appendChild(row);
+      });
+    };
+    buildFpList('');
+    fpSearch.oninput = () => buildFpList(fpSearch.value);
+    fpPanel.appendChild(fpSearch); fpPanel.appendChild(fpList);
+    fpBtn.onclick = e => { e.stopPropagation(); const open=fpPanel.style.display==='flex'; fpPanel.style.display=open?'none':'flex'; if(!open){buildFpList('');fpSearch.value='';setTimeout(()=>fpSearch.focus(),30);}};
+    document.addEventListener('click', ()=>{fpPanel.style.display='none';});
+    fpPanel.onclick = e=>e.stopPropagation();
+    fpWrap.appendChild(fpBtn); fpWrap.appendChild(fpPanel);
+    sec2.appendChild(fpWrap);
+    body.appendChild(sec2);
+    box.appendChild(body);
+
+    // Footer
+    const footer = document.createElement('div');
+    footer.style.cssText = 'display:flex;align-items:center;gap:8px;padding:12px 18px;border-top:1px solid var(--cb-os1);background:var(--cb-dark);border-radius:0 0 10px 10px;flex-wrap:wrap';
+
+    const nameInput = document.createElement('input'); nameInput.type='text'; nameInput.placeholder='Profile name…';
+    nameInput.value = initial.name || '';
+    nameInput.style.cssText = 'flex:1;min-width:120px;padding:5px 9px;background:rgba(0,0,0,0.3);border:1px solid var(--cb-os1);border-radius:4px;color:var(--cb-text-inverse);font-size:11px;outline:none';
+
+    const saveBtn = document.createElement('button'); saveBtn.textContent = '💾 Save';
+    saveBtn.style.cssText = 'font-size:11px;padding:5px 12px;background:rgba(255,215,0,0.15);border:1px solid var(--cb-yellow);border-radius:4px;color:var(--cb-yellow);cursor:pointer;font-weight:700';
+    saveBtn.onclick = () => {
+      const name = nameInput.value.trim();
+      if (!name) { nameInput.style.borderColor='#e83e3e'; setTimeout(()=>nameInput.style.borderColor='',1500); return; }
+      const profile = { name, cards: selectedCards, customFields };
+      _cpSave(profile);
+      _ovCustomActive = profile; _ovProfile = null;
+      profileBtn.innerHTML = `⭐ <span>Investigating: <strong>${name}</strong></span> ▾`;
+      overlay.remove();
+      scheduleOverviewRender();
+    };
+
+    const applyBtn = document.createElement('button'); applyBtn.textContent = '✓ Apply';
+    applyBtn.style.cssText = 'font-size:11px;padding:5px 12px;background:transparent;border:1px solid var(--cb-os1);border-radius:4px;color:var(--cb-text-inverse);cursor:pointer';
+    applyBtn.onclick = () => {
+      const name = nameInput.value.trim() || 'Custom';
+      _ovCustomActive = { name, cards: selectedCards, customFields };
+      _ovProfile = null;
+      profileBtn.innerHTML = `⭐ <span>Investigating: <strong>${name}</strong></span> ▾`;
+      overlay.remove();
+      scheduleOverviewRender();
+    };
+
+    const cancelBtn = document.createElement('button'); cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.cssText = 'font-size:11px;padding:5px 10px;background:none;border:none;color:var(--cb-muted);cursor:pointer';
+    cancelBtn.onclick = () => overlay.remove();
+
+    footer.appendChild(nameInput); footer.appendChild(saveBtn); footer.appendChild(applyBtn); footer.appendChild(cancelBtn);
+    box.appendChild(footer);
+    overlay.appendChild(box);
+    document.body.appendChild(overlay);
+  }
+
   // ── Generic card builder ──────────────────────────────────────────────────────
   function buildCard(titleText, items) {
     const card = document.createElement('div'); card.className = 'ov-card';
@@ -13350,11 +14231,15 @@ const TECHNIQUE_PROFILES = {
 
   // ── Filter from overview — stays in overview, cards update live ──────────────
   function filterFromOverview(col, val, mode) {
+    const m = mode || 'contains';
+    // Don't add a duplicate — if an identical filter already exists, skip
+    const already = (filterRows || []).some(r => r.col === col && r.value === val && r.mode === m);
+    if (already) return;
     const id = ++filterRowCounter;
-    filterRows.push({ id, col, mode: mode||'contains', value: val, connector: 'AND' });
+    filterRows.push({ id, col, mode: m, value: val, connector: 'AND' });
     renderFilterRows();
     document.getElementById('filterBar').classList.remove('hidden');
-    applyFilter(); // triggers scheduleOverviewRender via debounce — overview stays open
+    applyFilter();
   }
 
   // ── Active filter summary for the header strip ────────────────────────────────
@@ -14060,8 +14945,11 @@ self.onmessage = function(e) {
   data.indicators = computeIndicators(cols, s, n);
 
   self.postMessage({ type: 'progress', msg: 'Running MITRE ATT&CK detections…' });
-  const mn = (mCols.ts || mCols.action || mCols.fileName || []).length;
-  data.mitreResults = computeMitreDetections(mCols, mn);
+  // When a profile is active use filtered cols so coverage reflects what's in the filtered data;
+  // otherwise use mCols (all rows) so the full picture is always visible on General view
+  const mitreSource = activeProfile ? cols : mCols;
+  const mn = (mitreSource.ts || mitreSource.action || mitreSource.fileName || []).length;
+  data.mitreResults = computeMitreDetections(mitreSource, mn);
 
   // TTP context card — structured records for the active technique profile
   if (activeProfile) {
@@ -14082,8 +14970,11 @@ self.onmessage = function(e) {
   self.postMessage({ type: 'progress', msg: 'Building top-N tables…' });
   data.topN = computeTopN(cols, s, n, isWindowsSecLog);
 
-  self.postMessage({ type: 'progress', msg: 'Building attack chain…' });
-  data.attackChain = computeAttackChain(cols, s, n, isWindowsSecLog);
+  // Attack chain only meaningful for Windows Security Event Logs
+  if (isWindowsSecLog) {
+    self.postMessage({ type: 'progress', msg: 'Building attack chain…' });
+    data.attackChain = computeAttackChain(cols, s, n, isWindowsSecLog);
+  }
 
   self.postMessage({ type: 'done', data });
 };
@@ -14404,6 +15295,22 @@ function computeTtpContext(cols, s, n, profileId) {
     }))};
   }
 
+  // ── T1562: Impair Defenses (parent — all sub-techniques) ─────────────────────
+  if (profileId === 'T1562') {
+    const IMPAIR = /Set-MpPreference.*Disable|Add-MpPreference.*Exclusion|netsh.*firewall.*disable|sc.*stop.*windefend|wevtutil.*cl|Clear-EventLog|auditpol.*no.*auditing|bcdedit.*safeboot|DisableRealtimeMonitoring|DisableBehaviorMonitoring/i;
+    indices = match(i => IMPAIR.test(c[i]||ic[i]||''));
+    return { techId: profileId, label: 'Impair Defenses Activity', count: indices.length, records: sortAndCap(indices).map(i => {
+      const cmd = c[i] || ic[i] || '';
+      const category =
+        /windefend|MpPreference|DisableRealtime|DisableBehavior/i.test(cmd) ? 'AV/EDR disabled' :
+        /firewall/i.test(cmd)                                                ? 'Firewall modified' :
+        /wevtutil|Clear-EventLog/i.test(cmd)                                 ? 'Event log cleared' :
+        /auditpol/i.test(cmd)                                                ? 'Audit policy changed' :
+        /bcdedit.*safeboot/i.test(cmd)                                       ? 'Safe mode boot set' : '';
+      return { device: dev[i], user: usr[i], time: fmtTime(ts[i]), process: shortName(fi[i]||f[i]), toolDisabled: category, cmdline: trunc(cmd, 180) };
+    })};
+  }
+
   // ── T1562.001: Disable Security Tools ────────────────────────────────────────
   if (profileId === 'T1562.001') {
     indices = match(i => /Set-MpPreference.*Disable|Add-MpPreference.*Exclusion|netsh.*firewall.*disable|sc.*stop.*windefend|tamperprotection/i.test(c[i]||ic[i]||''));
@@ -14613,6 +15520,7 @@ function computeMitreDetections(cols, n) {
     ['T1218.004',i=>/installutil/i.test(f[i]||fi[i]||'')],
     ['T1127.001',i=>/msbuild/i.test(f[i]||fi[i]||'')],
     ['T1220',    i=>/wmic.*\/format|msxsl/i.test(c[i]||'')],
+    ['T1562',    i=>/Set-MpPreference.*Disable|Add-MpPreference.*Exclusion|netsh.*firewall.*disable|sc.*stop.*windefend|wevtutil.*cl|Clear-EventLog|auditpol.*no.*auditing|DisableRealtimeMonitoring/i.test(c[i]||'')],
     ['T1562.001',i=>/Set-MpPreference.*Disable|Add-MpPreference.*Exclusion/i.test(c[i]||'')||/netsh.*firewall.*disable|sc.*stop.*windefend/i.test(c[i]||'')],
     ['T1562.002',i=>/wevtutil.*cl|Clear-EventLog/i.test(c[i]||'')||/auditpol.*\/set.*no.*auditing/i.test(c[i]||'')],
     ['T1070.001',i=>/wevtutil.*cl|wevtutil.*clear/i.test(c[i]||'')||/Clear-EventLog/i.test(c[i]||'')],
@@ -14993,7 +15901,7 @@ function buildDetail(cols, s, indices, sampleKey, type) {
     const seen = new Set();
     for (const i of indices) {
       const v = (cols[sampleKey][i]||'').trim();
-      if (v && !seen.has(v)) { seen.add(v); det.samples.push(v); if (det.samples.length >= 3) break; }
+      if (v && !seen.has(v)) { seen.add(v); det.samples.push(v); if (det.samples.length >= 8) break; }
     }
   }
 

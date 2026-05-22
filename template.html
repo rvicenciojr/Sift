@@ -35,8 +35,6 @@
   <div class="controls">
     <button onclick="document.getElementById('fileInput').click()">📂 Open CSV</button>
     <input type="file" id="fileInput" accept=".csv,.evtx" multiple onchange="loadFiles(this.files)" style="display:none">
-    <button class="btn-export" onclick="exportFiltered()" id="btnExport" style="display:none">⬇ Export filtered</button>
-    <span class="row-count" id="rowCount" style="margin-left:4px"></span>
     <span id="dataSourceBadge" style="display:none;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;padding:2px 8px;border-radius:4px;margin-left:6px"></span>
   </div>
   <div class="gear-wrap" id="gearWrap">
@@ -71,12 +69,11 @@
   <div class="atb-divider"></div>
   <button id="timelineToggle" class="atb-btn" onclick="toggleTimeline()" title="Event timeline & time range filter">📊 Timeline</button>
   <button id="bytesToggle" class="atb-btn" onclick="toggleBytesChart()" title="Bytes in/out chart">📈 Bytes</button>
+  <button class="atb-btn" onclick="qbToggle()" title="Build multi-IOC Chronicle / Defender queries">🔨 Query Builder</button>
   <div class="atb-divider" id="atbDivider1"></div>
   <button id="procTreeBtn" class="atb-btn" style="background:rgba(255,215,0,0.1);border-color:var(--cb-yellow);color:var(--cb-yellow);font-weight:700;display:none" onclick="openProcTree()">🌲 Process Tree</button>
   <button id="networkMapBtn" class="atb-btn" style="background:rgba(45,212,191,0.1);border:1px solid #2dd4bf;color:#2dd4bf;font-weight:700;display:none" onclick="openNetworkMap()">🗺 Network Map</button>
   <button id="amsiBtn" class="atb-btn" style="background:rgba(240,165,0,0.1);border:1px solid #f0a500;color:#f0a500;font-weight:700;display:none" onclick="openAmsiExtractor()">🔍 Script Decoder</button>
-  <div class="atb-divider" id="atbDivider2"></div>
-  <button class="atb-btn" onclick="qbToggle()" title="Build multi-IOC Chronicle / Defender queries">🔨 Query Builder</button>
 </div>
 
 <!-- Timeline Bar (includes time range controls) -->
@@ -229,21 +226,27 @@
  
 <!-- Pagination Bar -->
 <div id="paginationBar">
-  <button class="pg-btn" id="pgFirst" onclick="goPage(1)">«</button>
-  <button class="pg-btn" id="pgPrev"  onclick="goPage(currentPage-1)">‹ Prev</button>
-  <span id="pgInfo"></span>
-  <button class="pg-btn" id="pgNext"  onclick="goPage(currentPage+1)">Next ›</button>
-  <button class="pg-btn" id="pgLast"  onclick="goPage(totalPages())">»</button>
-  <label style="color:var(--cb-text-inverse);font-size:11px">Go to</label>
-  <input type="number" id="pgJump" min="1" placeholder="#" onkeydown="if(event.key==='Enter')goPage(+this.value)">
-  <label style="color:var(--cb-text-inverse);font-size:11px;margin-left:8px">Rows/page</label>
-  <select id="pgSize" style="width:80px" onchange="currentPage=1;renderPage()">
-    <option value="200">200</option>
-    <option value="500" selected>500</option>
-    <option value="1000">1000</option>
-    <option value="5000">5000</option>
-    <option value="0">All</option>
-  </select>
+  <div class="pg-row pg-row-top">
+    <button class="pg-btn" id="pgFirst" onclick="goPage(1)">«</button>
+    <button class="pg-btn" id="pgPrev"  onclick="goPage(currentPage-1)">‹ Prev</button>
+    <span id="pgInfo"></span>
+    <button class="pg-btn" id="pgNext"  onclick="goPage(currentPage+1)">Next ›</button>
+    <button class="pg-btn" id="pgLast"  onclick="goPage(totalPages())">»</button>
+    <label style="color:var(--cb-text-inverse);font-size:11px">Go to</label>
+    <input type="number" id="pgJump" min="1" placeholder="#" onkeydown="if(event.key==='Enter')goPage(+this.value)">
+    <label style="color:var(--cb-text-inverse);font-size:11px;margin-left:8px">Rows/page</label>
+    <select id="pgSize" style="width:80px" onchange="currentPage=1;renderPage()">
+      <option value="200">200</option>
+      <option value="500" selected>500</option>
+      <option value="1000">1000</option>
+      <option value="5000">5000</option>
+      <option value="0">All</option>
+    </select>
+  </div>
+  <div class="pg-row pg-row-bottom" style="justify-content:flex-end">
+    <button class="btn-export" onclick="exportFiltered()" id="btnExport" style="display:none">⬇ Export</button>
+    <span class="row-count" id="rowCount"></span>
+  </div>
 </div>
  
 <!-- Process Tree Modal -->
@@ -809,8 +812,11 @@ self.onmessage = function(e) {
   data.indicators = computeIndicators(cols, s, n);
 
   self.postMessage({ type: 'progress', msg: 'Running MITRE ATT&CK detections…' });
-  const mn = (mCols.ts || mCols.action || mCols.fileName || []).length;
-  data.mitreResults = computeMitreDetections(mCols, mn);
+  // When a profile is active use filtered cols so coverage reflects what's in the filtered data;
+  // otherwise use mCols (all rows) so the full picture is always visible on General view
+  const mitreSource = activeProfile ? cols : mCols;
+  const mn = (mitreSource.ts || mitreSource.action || mitreSource.fileName || []).length;
+  data.mitreResults = computeMitreDetections(mitreSource, mn);
 
   // TTP context card — structured records for the active technique profile
   if (activeProfile) {
@@ -831,8 +837,11 @@ self.onmessage = function(e) {
   self.postMessage({ type: 'progress', msg: 'Building top-N tables…' });
   data.topN = computeTopN(cols, s, n, isWindowsSecLog);
 
-  self.postMessage({ type: 'progress', msg: 'Building attack chain…' });
-  data.attackChain = computeAttackChain(cols, s, n, isWindowsSecLog);
+  // Attack chain only meaningful for Windows Security Event Logs
+  if (isWindowsSecLog) {
+    self.postMessage({ type: 'progress', msg: 'Building attack chain…' });
+    data.attackChain = computeAttackChain(cols, s, n, isWindowsSecLog);
+  }
 
   self.postMessage({ type: 'done', data });
 };
@@ -1153,6 +1162,22 @@ function computeTtpContext(cols, s, n, profileId) {
     }))};
   }
 
+  // ── T1562: Impair Defenses (parent — all sub-techniques) ─────────────────────
+  if (profileId === 'T1562') {
+    const IMPAIR = /Set-MpPreference.*Disable|Add-MpPreference.*Exclusion|netsh.*firewall.*disable|sc.*stop.*windefend|wevtutil.*cl|Clear-EventLog|auditpol.*no.*auditing|bcdedit.*safeboot|DisableRealtimeMonitoring|DisableBehaviorMonitoring/i;
+    indices = match(i => IMPAIR.test(c[i]||ic[i]||''));
+    return { techId: profileId, label: 'Impair Defenses Activity', count: indices.length, records: sortAndCap(indices).map(i => {
+      const cmd = c[i] || ic[i] || '';
+      const category =
+        /windefend|MpPreference|DisableRealtime|DisableBehavior/i.test(cmd) ? 'AV/EDR disabled' :
+        /firewall/i.test(cmd)                                                ? 'Firewall modified' :
+        /wevtutil|Clear-EventLog/i.test(cmd)                                 ? 'Event log cleared' :
+        /auditpol/i.test(cmd)                                                ? 'Audit policy changed' :
+        /bcdedit.*safeboot/i.test(cmd)                                       ? 'Safe mode boot set' : '';
+      return { device: dev[i], user: usr[i], time: fmtTime(ts[i]), process: shortName(fi[i]||f[i]), toolDisabled: category, cmdline: trunc(cmd, 180) };
+    })};
+  }
+
   // ── T1562.001: Disable Security Tools ────────────────────────────────────────
   if (profileId === 'T1562.001') {
     indices = match(i => /Set-MpPreference.*Disable|Add-MpPreference.*Exclusion|netsh.*firewall.*disable|sc.*stop.*windefend|tamperprotection/i.test(c[i]||ic[i]||''));
@@ -1362,6 +1387,7 @@ function computeMitreDetections(cols, n) {
     ['T1218.004',i=>/installutil/i.test(f[i]||fi[i]||'')],
     ['T1127.001',i=>/msbuild/i.test(f[i]||fi[i]||'')],
     ['T1220',    i=>/wmic.*\/format|msxsl/i.test(c[i]||'')],
+    ['T1562',    i=>/Set-MpPreference.*Disable|Add-MpPreference.*Exclusion|netsh.*firewall.*disable|sc.*stop.*windefend|wevtutil.*cl|Clear-EventLog|auditpol.*no.*auditing|DisableRealtimeMonitoring/i.test(c[i]||'')],
     ['T1562.001',i=>/Set-MpPreference.*Disable|Add-MpPreference.*Exclusion/i.test(c[i]||'')||/netsh.*firewall.*disable|sc.*stop.*windefend/i.test(c[i]||'')],
     ['T1562.002',i=>/wevtutil.*cl|Clear-EventLog/i.test(c[i]||'')||/auditpol.*\/set.*no.*auditing/i.test(c[i]||'')],
     ['T1070.001',i=>/wevtutil.*cl|wevtutil.*clear/i.test(c[i]||'')||/Clear-EventLog/i.test(c[i]||'')],
@@ -1742,7 +1768,7 @@ function buildDetail(cols, s, indices, sampleKey, type) {
     const seen = new Set();
     for (const i of indices) {
       const v = (cols[sampleKey][i]||'').trim();
-      if (v && !seen.has(v)) { seen.add(v); det.samples.push(v); if (det.samples.length >= 3) break; }
+      if (v && !seen.has(v)) { seen.add(v); det.samples.push(v); if (det.samples.length >= 8) break; }
     }
   }
 

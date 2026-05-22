@@ -663,6 +663,12 @@ const MITRE_DETECTIONS = {
     /msbuild/i.test(f[i]||'') || /msbuild/i.test(fi[i]||''),
   'T1220':    (c,f,fi,p,ri,ru,rp,rk,a,ic,i) =>
     /wmic.*\/format|msxsl/i.test(c[i]||''),
+  'T1562':    (c,f,fi,p,ri,ru,rp,rk,a,ic,i) =>
+    /Set-MpPreference.*Disable|Add-MpPreference.*Exclusion/i.test(c[i]||'') ||
+    /netsh.*firewall.*disable|sc.*stop.*windefend/i.test(c[i]||'') ||
+    /wevtutil.*cl|Clear-EventLog/i.test(c[i]||'') ||
+    /auditpol.*\/set.*no.*auditing/i.test(c[i]||'') ||
+    /bcdedit.*safeboot|DisableRealtimeMonitoring|DisableBehaviorMonitoring/i.test(c[i]||''),
   'T1562.001':(c,f,fi,p,ri,ru,rp,rk,a,ic,i) =>
     /Set-MpPreference.*Disable|Add-MpPreference.*Exclusion/i.test(c[i]||'') ||
     /netsh.*firewall.*disable|sc.*stop.*windefend/i.test(c[i]||''),
@@ -1023,6 +1029,12 @@ const TECHNIQUE_PROFILES = {
     primary:   ['process', 'hostsAccounts', 'time'],
     secondary: ['activity', 'registry'],
   },
+  'T1562': {
+    label: 'Impair Defenses', icon: '🛡',
+    hint: 'AV/EDR disabled, firewall off, audit policy cleared, event logs wiped — security tools shut down before or during the attack',
+    primary:   ['process', 'activity', 'hostsAccounts'],
+    secondary: ['registry', 'time', 'procPairs'],
+  },
   'T1562.001': {
     label: 'Disable Security Tools', icon: '🛡',
     hint: 'Defender/AV disabled, firewall changes, audit policy cleared — evasion prep',
@@ -1040,5 +1052,284 @@ const TECHNIQUE_PROFILES = {
     hint: 'Mining processes, stratum connections, high-CPU processes — which hosts compromised',
     primary:   ['process', 'network', 'hostsAccounts'],
     secondary: ['time', 'activity'],
+  },
+
+  // ── Credential Access ──────────────────────────────────────────────────────
+  'T1003.002': {
+    label: 'SAM Database Dump', icon: '🔑',
+    hint: 'SAM hive access via reg save or VSS — local account hashes extracted',
+    primary:   ['process', 'hostsAccounts', 'hashes'],
+    secondary: ['activity', 'time', 'registry'],
+  },
+  'T1003.003': {
+    label: 'NTDS Dump', icon: '🔑',
+    hint: 'ntds.dit extracted via ntdsutil or VSS — full domain credential theft',
+    primary:   ['process', 'hostsAccounts', 'hashes'],
+    secondary: ['activity', 'time', 'registry'],
+  },
+  'T1110.003': {
+    label: 'Password Spraying', icon: '🔑',
+    hint: 'Single password against many accounts — source IP, targeted accounts, timing pattern',
+    primary:   ['hostsAccounts', 'activity', 'time'],
+    secondary: ['network', 'process', 'registry'],
+  },
+  'T1550.002': {
+    label: 'Pass the Hash', icon: '🔑',
+    hint: 'NTLM hash used without plaintext — source host, target, account used',
+    primary:   ['hostsAccounts', 'network', 'time'],
+    secondary: ['activity', 'process', 'registry'],
+  },
+  'T1550.003': {
+    label: 'Pass the Ticket', icon: '🔑',
+    hint: 'Kerberos ticket from another host — ticket origin, destination, account',
+    primary:   ['hostsAccounts', 'network', 'time'],
+    secondary: ['activity', 'process', 'registry'],
+  },
+  'T1558.001': {
+    label: 'Golden Ticket', icon: '🎟',
+    hint: 'Forged TGT using krbtgt hash — anomalous ticket lifetimes, unusual DC access',
+    primary:   ['hostsAccounts', 'activity', 'time'],
+    secondary: ['network', 'process', 'registry'],
+  },
+  'T1552.001': {
+    label: 'Credentials in Files', icon: '🔑',
+    hint: 'findstr/grep hunting for passwords in files — what paths searched, which host',
+    primary:   ['process', 'hostsAccounts', 'activity'],
+    secondary: ['time', 'network', 'hashes'],
+  },
+  'T1552.002': {
+    label: 'Credentials in Registry', icon: '🔑',
+    hint: 'Registry queried for stored credentials — which keys, which process read them',
+    primary:   ['registry', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'network'],
+  },
+  'T1555.003': {
+    label: 'Browser Credential Theft', icon: '🔑',
+    hint: 'Browser credential DB accessed — which browser, which process, which host',
+    primary:   ['process', 'hostsAccounts', 'hashes'],
+    secondary: ['activity', 'time', 'network'],
+  },
+
+  // ── Privilege Escalation ───────────────────────────────────────────────────
+  'T1548.002': {
+    label: 'Bypass UAC', icon: '⬆',
+    hint: 'eventvwr/fodhelper/sdclt hijacks — elevated process without UAC prompt',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'registry'],
+  },
+  'T1134.001': {
+    label: 'Token Impersonation', icon: '⬆',
+    hint: 'Token theft or impersonation — which process held the token, what it accessed next',
+    primary:   ['process', 'hostsAccounts', 'activity'],
+    secondary: ['time', 'network', 'registry'],
+  },
+  'T1134.004': {
+    label: 'Parent PID Spoofing', icon: '⬆',
+    hint: 'Process launched with a spoofed parent — hiding execution under a legitimate parent',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'hashes'],
+  },
+
+  // ── Defense Evasion ────────────────────────────────────────────────────────
+  'T1027.010': {
+    label: 'Command Obfuscation', icon: '🥷',
+    hint: 'Carets, backticks, string splitting — hiding command intent from detection',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'network'],
+    badge: 'Open Script Decoder for encoded content',
+  },
+  'T1036.003': {
+    label: 'Rename System Utility', icon: '🥷',
+    hint: 'System binary renamed to evade process name detection — check hashes against expected names',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['hashes', 'activity', 'time'],
+  },
+  'T1070.001': {
+    label: 'Clear Event Logs', icon: '🗑',
+    hint: 'wevtutil cl or Clear-EventLog — which logs cleared, which hosts, by what process',
+    primary:   ['process', 'hostsAccounts', 'time'],
+    secondary: ['activity', 'registry', 'network'],
+  },
+  'T1070.004': {
+    label: 'File Deletion', icon: '🗑',
+    hint: 'Tool cleanup after execution — what was deleted, by which process, timing',
+    primary:   ['process', 'hostsAccounts', 'time'],
+    secondary: ['activity', 'network', 'registry'],
+  },
+  'T1055.001': {
+    label: 'DLL Injection', icon: '💉',
+    hint: 'DLL loaded into remote process — which DLL, which target, which host',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'hashes'],
+  },
+  'T1055.012': {
+    label: 'Process Hollowing', icon: '💉',
+    hint: 'Legitimate process launched then replaced — suspicious parent, unexpected child behavior',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'hashes'],
+  },
+  'T1218.004': {
+    label: 'InstallUtil Proxy Exec', icon: '🔧',
+    hint: 'Microsoft-signed binary executing arbitrary .NET — which assembly, which parent',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'hashes'],
+  },
+  'T1218.005': {
+    label: 'Mshta Proxy Exec', icon: '🔧',
+    hint: 'mshta.exe loading remote HTA or inline script — what URL, what parent spawned it',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['network', 'activity', 'time'],
+  },
+  'T1218.007': {
+    label: 'Msiexec Proxy Exec', icon: '🔧',
+    hint: 'msiexec loading remote MSI or DLL — URL, quiet flags, what ran after',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['network', 'activity', 'time'],
+  },
+  'T1218.009': {
+    label: 'Regsvcs / Regasm', icon: '🔧',
+    hint: 'COM component abuse for code execution — which DLL, which parent',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'hashes'],
+  },
+  'T1218.010': {
+    label: 'Regsvr32 Proxy Exec', icon: '🔧',
+    hint: 'Squiblydoo — remote URL or local DLL via scrobj.dll, what spawned it',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['network', 'activity', 'time'],
+  },
+  'T1127.001': {
+    label: 'MSBuild Proxy Exec', icon: '🔧',
+    hint: 'MSBuild executing inline tasks with shellcode or C# — LOLBin execution chain',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'hashes'],
+  },
+  'T1562.002': {
+    label: 'Disable Event Logging', icon: '🛡',
+    hint: 'Audit policy set to no auditing — which categories disabled, which hosts',
+    primary:   ['process', 'activity', 'hostsAccounts'],
+    secondary: ['registry', 'time'],
+  },
+
+  // ── Persistence ────────────────────────────────────────────────────────────
+  'T1136.001': {
+    label: 'Local Account Created', icon: '👤',
+    hint: 'net user /add — new local account, which host, which process created it',
+    primary:   ['hostsAccounts', 'activity', 'time'],
+    secondary: ['process', 'registry', 'network'],
+  },
+  'T1136.002': {
+    label: 'Domain Account Created', icon: '👤',
+    hint: 'New domain account — target DC, account name, creating process',
+    primary:   ['hostsAccounts', 'activity', 'time'],
+    secondary: ['process', 'registry', 'network'],
+  },
+  'T1546.003': {
+    label: 'WMI Event Subscription', icon: '🔒',
+    hint: 'WMI permanent subscription — event filter, consumer, binding — stealthy persistence',
+    primary:   ['registry', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'network'],
+  },
+  'T1546.008': {
+    label: 'Accessibility Features', icon: '🔒',
+    hint: 'sethc.exe/utilman.exe replaced — backdoor accessible at login screen',
+    primary:   ['registry', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'network'],
+  },
+  'T1546.012': {
+    label: 'IFEO Injection', icon: '🔒',
+    hint: 'Image File Execution Options Debugger key — arbitrary process injected at target launch',
+    primary:   ['registry', 'process', 'hostsAccounts'],
+    secondary: ['activity', 'time', 'network'],
+  },
+  'T1505.003': {
+    label: 'Web Shell', icon: '🕸',
+    hint: 'Web server spawning cmd/powershell — w3wp/httpd as parent, what commands ran',
+    primary:   ['procPairs', 'process', 'hostsAccounts'],
+    secondary: ['network', 'activity', 'hashes'],
+  },
+
+  // ── Discovery ──────────────────────────────────────────────────────────────
+  'T1069.001': {
+    label: 'Local Group Discovery', icon: '🔭',
+    hint: 'net localgroup / Get-LocalGroupMember — who is in Administrators locally',
+    primary:   ['hostsAccounts', 'activity', 'process'],
+    secondary: ['time', 'network', 'registry'],
+  },
+  'T1069.002': {
+    label: 'Domain Group Discovery', icon: '🔭',
+    hint: 'net group /domain / Get-ADGroup — domain group membership enumeration',
+    primary:   ['hostsAccounts', 'activity', 'process'],
+    secondary: ['time', 'network', 'registry'],
+  },
+  'T1087.001': {
+    label: 'Local Account Discovery', icon: '🔭',
+    hint: 'net user / Get-LocalUser — local account enumeration on compromised host',
+    primary:   ['hostsAccounts', 'activity', 'process'],
+    secondary: ['time', 'network', 'registry'],
+  },
+  'T1087.002': {
+    label: 'Domain Account Discovery', icon: '🔭',
+    hint: 'net user /domain / Get-ADUser / ldapsearch — domain account enumeration',
+    primary:   ['hostsAccounts', 'activity', 'process'],
+    secondary: ['time', 'network', 'registry'],
+  },
+  'T1518.001': {
+    label: 'Security Software Discovery', icon: '🔭',
+    hint: 'Querying AV/EDR presence — attacker checking defenses before deploying tools',
+    primary:   ['activity', 'hostsAccounts', 'process'],
+    secondary: ['time', 'network', 'registry'],
+  },
+
+  // ── Lateral Movement ──────────────────────────────────────────────────────
+  'T1550.002': {
+    label: 'Pass the Hash', icon: '↔',
+    hint: 'NTLM hash used without plaintext — source host, target, account',
+    primary:   ['hostsAccounts', 'network', 'time'],
+    secondary: ['activity', 'process', 'registry'],
+  },
+  'T1550.003': {
+    label: 'Pass the Ticket', icon: '↔',
+    hint: 'Kerberos ticket reused from another host — ticket origin, destination, account',
+    primary:   ['hostsAccounts', 'network', 'time'],
+    secondary: ['activity', 'process', 'registry'],
+  },
+
+  // ── Execution ──────────────────────────────────────────────────────────────
+  'T1569.002': {
+    label: 'Service Execution', icon: '⚡',
+    hint: 'Execution via sc.exe or service manager — what binary, which host, who ran it',
+    primary:   ['process', 'activity', 'hostsAccounts'],
+    secondary: ['registry', 'time', 'network'],
+  },
+
+  // ── Collection ─────────────────────────────────────────────────────────────
+  'T1560.001': {
+    label: 'Archive via Utility', icon: '📦',
+    hint: '7zip/rar/zip compressing data — what was archived, where, before exfiltration',
+    primary:   ['process', 'hostsAccounts', 'time'],
+    secondary: ['activity', 'network', 'hashes'],
+  },
+
+  // ── Command and Control ────────────────────────────────────────────────────
+  'T1071.004': {
+    label: 'DNS C2', icon: '📡',
+    hint: 'DNS tunneling or C2 over DNS — high query volume, long subdomains, unusual TLDs',
+    primary:   ['network', 'time', 'hostsAccounts'],
+    secondary: ['process', 'activity'],
+  },
+
+  // ── Exfiltration ──────────────────────────────────────────────────────────
+  'T1048.003': {
+    label: 'Exfil over Unencrypted Protocol', icon: '📤',
+    hint: 'FTP/HTTP exfiltration — destination IP, volume, which process sent it',
+    primary:   ['network', 'hostsAccounts', 'time'],
+    secondary: ['process', 'activity', 'hashes'],
+  },
+  'T1567.002': {
+    label: 'Exfil to Cloud Storage', icon: '📤',
+    hint: 'OneDrive/Dropbox/Mega upload — which process, what volume, which account',
+    primary:   ['network', 'process', 'hostsAccounts'],
+    secondary: ['time', 'activity', 'hashes'],
   },
 };

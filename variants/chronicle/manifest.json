@@ -1,10 +1,9 @@
 {
   "name": "sift-chronicle",
-  "title": "Sift \u2014 Chronicle",
+  "title": "Sift - Chronicle Viewer",
+  "header": "Sift - Chronicle Viewer",
   "description": "Google Chronicle / UDM Security Event Investigation",
-  "modules": [
-    "chronicle"
-  ],
+  "modules": ["chronicle"],
   "features": {
     "chronicle": true,
     "defender": false,

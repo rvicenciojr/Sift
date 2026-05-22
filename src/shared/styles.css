@@ -8,7 +8,7 @@
     --cb-os6: #E0E0DD;
     --cb-os5: #C3CAC8;
     --cb-os4: #A0AEAC;
-    --cb-os3: #778F8D;
+    --cb-os3: #466061;  /* darkened in light mode for readability on white — restored in dark mode below */
     --cb-os2: #537173;
     --cb-os1: #304D4A;
 
@@ -18,7 +18,7 @@
     --cb-dark-2:       #FFFFFF;
     --cb-border:       #C3CAC8;
     --cb-text:         #002E3C;
-    --cb-muted:        #537173;
+    --cb-muted:        #466061;
     --cb-text-inverse: #FFFFFF;
 
     /* Modal theme — light mode */
@@ -29,8 +29,8 @@
     --modal-input-bg:  rgba(0,0,0,0.05);
     --modal-input-bdr: #C3CAC8;
     --modal-text:      #002E3C;
-    --modal-muted:     #537173;
-    --modal-dim:       #778F8D;
+    --modal-muted:     #466061;
+    --modal-dim:       #5C7575;
     --modal-code-bg:   #F1EFED;
     --modal-canvas-bg: rgba(0,0,0,0.04);
 
@@ -44,6 +44,8 @@
 
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
+      /* Restore brand palette --cb-os3 for dark mode (light teal works on dark bg) */
+      --cb-os3:          #778F8D;
       /* Semantic UI — dark mode */
       --ctx-preview-color: #FFD700;
       --cb-black:        #0b1a22;
@@ -70,6 +72,8 @@
   }
 
   :root[data-theme="dark"] {
+    /* Restore brand palette --cb-os3 for dark mode (light teal works on dark bg) */
+    --cb-os3:          #778F8D;
     /* Semantic UI — dark mode */
     --ctx-preview-color: #FFD700;
     --cb-black:        #0b1a22;
@@ -119,16 +123,14 @@
   }
 
   header h1 {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
-    font-size: 18px;
+    font-size: 16px;
     font-weight: 700;
     color: var(--cb-yellow);
     white-space: nowrap;
     letter-spacing: 0;
-    text-transform: uppercase;
-    pointer-events: none;
+    margin-right: auto;
+    padding-left: 6px;
+    flex-shrink: 0;
   }
  
   /* ── Gear menu ── */
@@ -216,17 +218,34 @@
     font-size: 12px;
     cursor: pointer;
     white-space: nowrap;
+    transition: transform 0.08s ease, box-shadow 0.08s ease;
   }
- 
-  button:hover { background: var(--cb-yellow-soft); border-color: var(--cb-yellow); color: var(--cb-ocean); }
+
+  button:hover {
+    filter: brightness(1.15);
+  }
+
+  button:active {
+    transform: translateY(1px) scale(0.98);
+    box-shadow: inset 0 1px 2px rgba(0,0,0,0.25);
+  }
+  button:focus, button:focus-visible {
+    outline: none;
+    border-color: var(--cb-border);
+  }
+  button:focus-visible {
+    box-shadow: 0 0 0 2px rgba(45, 212, 191, 0.45);
+  }
  
   .btn-export {
-    background: var(--cb-yellow-soft);
-    border-color: var(--cb-yellow);
-    color: var(--cb-white);
+    background: var(--cb-dark-2);
+    border-color: var(--cb-border);
+    color: var(--cb-text);
   }
- 
-  .btn-export:hover { background: #FFD70055; }
+
+  .btn-export:hover {
+    filter: brightness(1.15);
+  }
  
   .row-count {
     color: var(--cb-text-inverse);
@@ -266,16 +285,25 @@
   }
  
   .tab:hover {
-    background: var(--cb-yellow-soft);
-    border-color: var(--cb-yellow);
-    color: var(--cb-ocean);
+    filter: brightness(1.1);
   }
- 
+
   .tab.active {
     background: var(--cb-ocean);
-    border-color: var(--cb-yellow);
-    color: var(--cb-yellow);
-    font-weight: 600;
+    border: 1px solid var(--cb-border);
+    border-top: 3px solid var(--cb-yellow);
+    border-radius: 6px 6px 0 0;
+    color: var(--cb-text-inverse);
+    font-weight: 700;
+    padding: 4px 16px 6px;
+    font-size: 12.5px;
+    margin-bottom: -1px;
+    position: relative;
+    z-index: 2;
+  }
+
+  .tab.active:hover {
+    filter: brightness(1.15);
   }
  
   .tab-add {
@@ -543,7 +571,7 @@
   #cpFooter button { font-size: 12px; padding: 4px 12px; }
  
   tbody tr { border-bottom: 1px solid var(--cb-border); }
-  tbody tr:hover { background: #FFD70066 !important; }
+  tbody tr:hover { background: rgba(120, 143, 141, 0.18) !important; }
  
   td {
     padding: 5px 10px;
@@ -594,10 +622,11 @@
 
   /* Term match emphasis within cell */
   mark {
-    background: #FFD70066;
+    background: rgba(45, 212, 191, 0.28);
     color: inherit !important;
     border-radius: 2px;
-    padding: 0 1px;
+    padding: 0 2px;
+    font-weight: 600;
   }
  
   td mark,
@@ -651,9 +680,11 @@
     gap: 4px;
   }
   .atb-btn.active {
-    background: var(--cb-yellow-soft) !important;
-    border-color: var(--cb-yellow) !important;
-    color: var(--cb-ocean) !important;
+    background: transparent !important;
+    border: 2px solid var(--cb-yellow) !important;
+    color: var(--cb-yellow) !important;
+    font-weight: 700;
+    padding: 2px 8px;
   }
 
   input[type="datetime-local"] {
@@ -958,14 +989,23 @@
   #paginationBar {
     background: var(--cb-dark);
     border-top: 1px solid var(--cb-border);
-    padding: 7px 16px;
+    padding: 6px 16px;
     display: none;
-    align-items: center;
-    gap: 10px;
-    flex-wrap: wrap;
+    flex-direction: column;
+    gap: 4px;
     flex-shrink: 0;
   }
   #paginationBar.visible { display: flex; }
+  .pg-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .pg-row-bottom {
+    padding-top: 4px;
+    border-top: 1px solid rgba(255,255,255,0.06);
+  }
   .pg-btn {
     background: transparent;
     border: 1px solid var(--cb-yellow);
@@ -1795,9 +1835,9 @@
 
   #qbDragHandle button {
     background: transparent;
-    border: 1px solid var(--cb-os1);
+    border: 1px solid rgba(255,255,255,0.18);
     border-radius: 4px;
-    color: var(--cb-os3);
+    color: var(--cb-text-inverse);
     font-size: 10px;
     padding: 2px 7px;
     cursor: pointer;
@@ -2941,5 +2981,19 @@
     padding: 1px 4px;
     border-radius: 8px;
     border: 1px solid var(--cb-border);
+  }
+
+  /* ── Cell selection ────────────────────────────────────────────────────────── */
+  #csvBody td.cell-selected {
+    background: rgba(65, 105, 225, 0.22) !important;
+    outline: 1px solid rgba(65, 105, 225, 0.55);
+    outline-offset: -1px;
+  }
+
+  #csvTable.table-selecting,
+  #csvTable.table-selecting * {
+    user-select: none;
+    -webkit-user-select: none;
+    cursor: cell;
   }
 

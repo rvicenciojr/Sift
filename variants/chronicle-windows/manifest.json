@@ -1,12 +1,9 @@
 {
   "name": "sift-chronicle-windows",
-  "title": "Sift \u2014 Chronicle + Windows",
+  "title": "Sift - Chronicle + Windows Viewer",
+  "header": "Sift - Chronicle + Windows Viewer",
   "description": "Google Chronicle + Windows Security Event Log",
-  "modules": [
-    "chronicle",
-    "windows",
-    "evtx-parser"
-  ],
+  "modules": ["chronicle", "windows", "evtx-parser"],
   "features": {
     "chronicle": true,
     "defender": false,
