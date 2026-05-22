@@ -4,6 +4,8 @@ A browser-based, offline investigation tool for security analysts. Load a log fi
 
 **No installation. No server. No data leaves your machine.**
 
+![Sift overview dashboard](screenshots/overview.png)
+
 ---
 
 ## For analysts — getting started
@@ -26,6 +28,8 @@ A browser-based, offline investigation tool for security analysts. Load a log fi
 3. Drag and drop your log file onto the page, or click **📂 Open CSV**
 
 That's it. One file, nothing else needed. Works completely offline.
+
+![Landing page](screenshots/landing.png)
 
 > **Supported browsers:** Chrome or Microsoft Edge (Chromium). Not compatible with Safari or Internet Explorer.
 
@@ -185,6 +189,8 @@ Any CSV works. The tool scans columns and assembles only the cards it has data f
 
 Open with **📋 Overview** in the analysis toolbar.
 
+![Overview dashboard — ATT&CK Coverage, TTP Selector, Event Frequency, Top Offenders](screenshots/overview.png)
+
 ### Visualization cards (all variants)
 
 | Card | Shows |
@@ -213,6 +219,8 @@ Shows only tactics and techniques with hits in your data. Click a tactic to expa
 ### Investigation Profiles
 
 The **"Investigating: ▾"** dropdown reshapes the dashboard for a specific investigation type.
+
+![Investigating dropdown](screenshots/investigating-dropdown.png)
 
 **Tactic profiles:**
 
@@ -295,6 +303,8 @@ All tools respect active filters — scoped to the current filtered dataset.
 
 ### 🌲 Process Tree
 
+![Process Tree](screenshots/process-tree.png)
+
 Hierarchical parent/child process view. Click any node for full detail: cmdline, hashes, network events, registry changes. Filter by host or search by process/cmdline/IP.
 
 **Windows Security action type categories:**
@@ -322,9 +332,17 @@ reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System\Audit" /
 
 ### 🗺 Network Map
 
+![Network Map — connection type chooser](screenshots/network-map-chooser.png)
+
+Pick a connection type (HTTPS, HTTP, SMB, WinRM, DNS, RDP, Other) to render only those flows.
+
+![Network Map — graph view](screenshots/network-map.png)
+
 Force-directed canvas graph of process → IP connections. Edge width = connection frequency. Detects beaconing (regular-interval connections). Click any node for detail.
 
 ### 🔍 Script Decoder
+
+![Script Decoder — decoded PowerShell with base64 entries](screenshots/script-decoder.png)
 
 Detects and decodes:
 
@@ -336,6 +354,8 @@ Detects and decodes:
 | **FromBase64String** | Regex on CommandLine — decodes inline base64 |
 
 ### 📊 Timeline
+
+![Timeline + Bytes charts](screenshots/timeline-bytes.png)
 
 Event distribution chart. Drag to select a time range — table updates on release. Double-click to reset. Quick-picks: 1h · 6h · 12h · 1d · 1w · 1mo.
 
@@ -364,6 +384,12 @@ SecurityEvent
 
 ---
 
+## Table view
+
+![Table view](screenshots/table.png)
+
+The main data grid — sortable columns, row-level highlights, filter controls in the bar above, pagination below with row count and Export on the bottom right.
+
 ## Filter Bar
 
 | Control | What it does |
@@ -382,6 +408,8 @@ SecurityEvent
 ---
 
 ## Right-Click Context Menu
+
+![Right-click context menu](screenshots/context-menu.png)
 
 Available everywhere — table cells, overview rows, context card fields, process tree nodes, network map nodes, script decoder entries.
 
