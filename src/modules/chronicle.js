@@ -8,8 +8,9 @@
     name: 'chronicle',
 
     detect: function(headers) {
-      // Chronicle detection runs first — if it returns true, isChronicleData is set
-      return (typeof detectChronicleData === 'function') ? detectChronicleData(headers) : false;
+      // isChronicleData is set by detectChronicleData() BEFORE Sift.detect() is invoked,
+      // so we just read the flag here. Calling detectChronicleData() back would recurse.
+      return (typeof isChronicleData !== 'undefined') && isChronicleData;
     },
 
     badge: {

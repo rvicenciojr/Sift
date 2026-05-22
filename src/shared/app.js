@@ -633,12 +633,21 @@
         tab.allRows = parsedRows;
         tab.parsed  = true;
 
-        if (activeTabIndex >= 0 && activeTabIndex < tabs.length && tabs[activeTabIndex] === tab) {
-          switchTab(activeTabIndex);
-          // Auto-apply severity highlights on first Chronicle load
-          if (typeof applyChronicleAutoHighlights === 'function') applyChronicleAutoHighlights();
+        try {
+          if (activeTabIndex >= 0 && activeTabIndex < tabs.length && tabs[activeTabIndex] === tab) {
+            switchTab(activeTabIndex);
+            // Auto-apply severity highlights on first Chronicle load
+            if (typeof applyChronicleAutoHighlights === 'function') applyChronicleAutoHighlights();
+          }
+        } catch (err) {
+          console.error('Post-parse render error:', err);
+          var stackPreview = err && err.stack
+            ? '\n\nStack:\n' + String(err.stack).split('\n').slice(0, 8).join('\n')
+            : '';
+          alert('Render step failed: ' + (err && err.message || err) + stackPreview);
+        } finally {
+          hideLoading();
         }
-        hideLoading();
       }
     }
 
