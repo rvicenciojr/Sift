@@ -20,6 +20,7 @@
     --cb-text:         #002E3C;
     --cb-muted:        #466061;
     --cb-text-inverse: #FFFFFF;
+    --cb-yellow-text:  #7A5900;  /* dark amber — yellow text readable on white backgrounds */
 
     /* Modal theme — light mode */
     --modal-bg:        #FFFFFF;
@@ -46,6 +47,7 @@
     :root:not([data-theme="light"]) {
       /* Restore brand palette --cb-os3 for dark mode (light teal works on dark bg) */
       --cb-os3:          #778F8D;
+      --cb-yellow-text:  #FFD700;  /* full yellow readable on dark backgrounds */
       /* Semantic UI — dark mode */
       --ctx-preview-color: #FFD700;
       --cb-black:        #0b1a22;
@@ -74,6 +76,7 @@
   :root[data-theme="dark"] {
     /* Restore brand palette --cb-os3 for dark mode (light teal works on dark bg) */
     --cb-os3:          #778F8D;
+    --cb-yellow-text:  #FFD700;
     /* Semantic UI — dark mode */
     --ctx-preview-color: #FFD700;
     --cb-black:        #0b1a22;
@@ -2143,7 +2146,7 @@
   }
   .ov-profile-opt:hover { background: var(--cb-yellow-soft); }
   .ov-profile-opt-active { background: rgba(255,215,0,0.08); }
-  .ov-profile-opt-active::before { content: '✓'; font-size: 10px; color: var(--cb-yellow); margin-right: -4px; }
+  .ov-profile-opt-active::before { content: '✓'; font-size: 10px; color: var(--cb-yellow-text); margin-right: -4px; }
 
   .ov-profile-hint {
     font-size: 11px;
@@ -2171,7 +2174,7 @@
     padding: 4px 12px;
     background: var(--cb-yellow-soft);
     border: 1px solid var(--cb-yellow);
-    color: var(--cb-yellow);
+    color: var(--cb-yellow-text);
     border-radius: 5px;
     cursor: pointer;
     white-space: nowrap;

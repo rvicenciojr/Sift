@@ -33,6 +33,7 @@ var SIFT_FEATURES = {"chronicle":true,"defender":false,"windows":false,"evtx":fa
     --cb-text:         #002E3C;
     --cb-muted:        #466061;
     --cb-text-inverse: #FFFFFF;
+    --cb-yellow-text:  #7A5900;  /* dark amber — yellow text readable on white backgrounds */
 
     /* Modal theme — light mode */
     --modal-bg:        #FFFFFF;
@@ -59,6 +60,7 @@ var SIFT_FEATURES = {"chronicle":true,"defender":false,"windows":false,"evtx":fa
     :root:not([data-theme="light"]) {
       /* Restore brand palette --cb-os3 for dark mode (light teal works on dark bg) */
       --cb-os3:          #778F8D;
+      --cb-yellow-text:  #FFD700;  /* full yellow readable on dark backgrounds */
       /* Semantic UI — dark mode */
       --ctx-preview-color: #FFD700;
       --cb-black:        #0b1a22;
@@ -87,6 +89,7 @@ var SIFT_FEATURES = {"chronicle":true,"defender":false,"windows":false,"evtx":fa
   :root[data-theme="dark"] {
     /* Restore brand palette --cb-os3 for dark mode (light teal works on dark bg) */
     --cb-os3:          #778F8D;
+    --cb-yellow-text:  #FFD700;
     /* Semantic UI — dark mode */
     --ctx-preview-color: #FFD700;
     --cb-black:        #0b1a22;
@@ -2156,7 +2159,7 @@ var SIFT_FEATURES = {"chronicle":true,"defender":false,"windows":false,"evtx":fa
   }
   .ov-profile-opt:hover { background: var(--cb-yellow-soft); }
   .ov-profile-opt-active { background: rgba(255,215,0,0.08); }
-  .ov-profile-opt-active::before { content: '✓'; font-size: 10px; color: var(--cb-yellow); margin-right: -4px; }
+  .ov-profile-opt-active::before { content: '✓'; font-size: 10px; color: var(--cb-yellow-text); margin-right: -4px; }
 
   .ov-profile-hint {
     font-size: 11px;
@@ -2184,7 +2187,7 @@ var SIFT_FEATURES = {"chronicle":true,"defender":false,"windows":false,"evtx":fa
     padding: 4px 12px;
     background: var(--cb-yellow-soft);
     border: 1px solid var(--cb-yellow);
-    color: var(--cb-yellow);
+    color: var(--cb-yellow-text);
     border-radius: 5px;
     cursor: pointer;
     white-space: nowrap;
@@ -12107,7 +12110,7 @@ const TECHNIQUE_PROFILES = {
 
     // ── Build custom profile entry ──
     const customOpt = document.createElement('div'); customOpt.className = 'ov-profile-opt';
-    customOpt.style.cssText = 'color:var(--cb-yellow)';
+    customOpt.style.cssText = 'color:var(--cb-yellow-text)';
     customOpt.innerHTML = '<span style="flex-shrink:0;width:16px">＋</span><span style="font-size:12px">Build custom profile…</span>';
     customOpt.onclick = () => { profileDropdown.style.display = 'none'; _openCustomProfileBuilder(profileBtn); };
     profileDropdown.appendChild(customOpt);
@@ -14099,7 +14102,7 @@ const TECHNIQUE_PROFILES = {
     const hdr = document.createElement('div');
     hdr.style.cssText = 'display:flex;align-items:center;padding:14px 18px;border-bottom:1px solid var(--cb-os1);background:var(--cb-dark);border-radius:10px 10px 0 0';
     const hdrTitle = document.createElement('span');
-    hdrTitle.style.cssText = 'font-size:14px;font-weight:700;color:var(--cb-yellow)';
+    hdrTitle.style.cssText = 'font-size:14px;font-weight:700;color:var(--cb-yellow-text)';
     hdrTitle.textContent = '⭐ Custom Profile Builder';
     const closeBtn = document.createElement('button');
     closeBtn.textContent = '✕'; closeBtn.style.cssText = 'margin-left:auto;background:none;border:none;color:var(--cb-muted);font-size:15px;cursor:pointer;padding:0 4px';
@@ -14181,70 +14184,60 @@ const TECHNIQUE_PROFILES = {
 
     // ── Section 2: Custom field cards ──
     const sec2 = document.createElement('div');
-    const sec2Hdr = document.createElement('div'); sec2Hdr.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--cb-muted);margin-bottom:10px';
-    sec2Hdr.textContent = 'Custom Field Cards'; sec2.appendChild(sec2Hdr);
+    const sec2Hdr = document.createElement('div'); sec2Hdr.style.cssText = 'font-size:10px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--cb-muted);margin-bottom:6px';
+    sec2Hdr.textContent = 'Column Cards — pin any column from your file'; sec2.appendChild(sec2Hdr);
+
+    const sec2Sub = document.createElement('div'); sec2Sub.style.cssText = 'font-size:10px;color:var(--cb-muted);margin-bottom:10px';
+    sec2Sub.textContent = 'Each selected column appears as a frequency card in the overview — click any value to filter.'; sec2.appendChild(sec2Sub);
 
     let customFields = [...(initial.customFields || [])];
-    const chipArea = document.createElement('div'); chipArea.style.cssText = 'display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px';
 
-    const rebuildChips = () => {
-      chipArea.innerHTML = '';
-      customFields.forEach(col => {
-        const chip = document.createElement('span');
-        chip.style.cssText = 'display:inline-flex;align-items:center;gap:4px;font-size:11px;padding:3px 8px;background:rgba(255,215,0,0.1);border:1px solid rgba(255,215,0,0.35);border-radius:4px;color:var(--cb-yellow)';
-        const txt = document.createElement('span'); txt.textContent = col.length > 24 ? col.slice(0,22)+'…' : col; txt.title = col;
-        const rm = document.createElement('span'); rm.textContent = '×'; rm.style.cursor = 'pointer'; rm.style.opacity = '0.6';
-        rm.onclick = () => { customFields = customFields.filter(f => f !== col); rebuildChips(); };
-        chip.appendChild(txt); chip.appendChild(rm); chipArea.appendChild(chip);
-      });
-      if (!customFields.length) {
-        const empty = document.createElement('span'); empty.style.cssText = 'font-size:11px;color:var(--cb-muted)'; empty.textContent = 'No custom fields added'; chipArea.appendChild(empty);
-      }
-    };
-    rebuildChips();
-    sec2.appendChild(chipArea);
+    // Search input — always visible
+    const fpSearch = document.createElement('input'); fpSearch.type = 'text'; fpSearch.placeholder = 'Search columns…';
+    fpSearch.style.cssText = 'width:100%;box-sizing:border-box;padding:5px 9px;background:rgba(0,0,0,0.12);border:1px solid var(--cb-os1);border-radius:4px;color:var(--cb-text-inverse);font-size:11px;outline:none;margin-bottom:6px';
+    sec2.appendChild(fpSearch);
 
-    // Field picker dropdown
-    const fpWrap = document.createElement('div'); fpWrap.style.cssText = 'position:relative;display:inline-block';
-    const fpBtn = document.createElement('button');
-    fpBtn.textContent = '＋ Add field';
-    fpBtn.style.cssText = 'font-size:11px;padding:4px 10px;background:transparent;border:1px solid var(--cb-os1);border-radius:4px;color:var(--cb-text-inverse);cursor:pointer';
-    const fpPanel = document.createElement('div');
-    fpPanel.style.cssText = 'display:none;position:absolute;left:0;top:calc(100% + 4px);background:var(--modal-bg);border:1px solid var(--cb-os1);border-radius:6px;box-shadow:0 8px 24px rgba(0,0,0,0.5);z-index:700;width:220px;flex-direction:column;max-height:240px';
-    const fpSearch = document.createElement('input'); fpSearch.type='text'; fpSearch.placeholder='Search columns…';
-    fpSearch.style.cssText = 'margin:8px;padding:4px 8px;background:rgba(0,0,0,0.3);border:1px solid var(--cb-os1);border-radius:4px;color:var(--cb-text-inverse);font-size:11px;outline:none';
-    const fpList = document.createElement('div'); fpList.style.cssText = 'overflow-y:auto;max-height:180px;padding-bottom:4px';
+    // Always-visible scrollable checklist of all CSV columns
+    const fpList = document.createElement('div');
+    fpList.style.cssText = 'overflow-y:auto;max-height:200px;border:1px solid var(--cb-os1);border-radius:6px;background:var(--modal-section)';
 
     const buildFpList = (filter) => {
       fpList.innerHTML = '';
-      const allCols = (typeof headers !== 'undefined' ? headers : []).filter(h => h&&h.trim());
-      const filtered = filter ? allCols.filter(h=>h.toLowerCase().includes(filter.toLowerCase())) : allCols;
+      const allCols = (typeof headers !== 'undefined' ? headers : []).filter(h => h && h.trim());
+      const filtered = filter ? allCols.filter(h => h.toLowerCase().includes(filter.toLowerCase())) : allCols;
+      if (!filtered.length) {
+        const empty = document.createElement('div'); empty.style.cssText = 'font-size:11px;color:var(--cb-muted);padding:10px 12px';
+        empty.textContent = allCols.length ? 'No columns match' : 'No file loaded yet'; fpList.appendChild(empty); return;
+      }
       filtered.forEach(col => {
-        const row = document.createElement('div');
-        row.style.cssText = 'font-size:11px;padding:5px 12px;cursor:pointer;display:flex;align-items:center;gap:6px';
-        row.onmouseover = () => row.style.background='rgba(255,215,0,0.08)';
-        row.onmouseout  = () => row.style.background='';
         const already = customFields.includes(col);
-        const chk = document.createElement('span'); chk.style.cssText='font-size:10px;width:12px;color:var(--cb-yellow)'; chk.textContent=already?'✓':'';
-        const lbl = document.createElement('span'); lbl.style.cssText=`flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${already?'var(--cb-yellow)':'var(--modal-text)'}`;
-        lbl.textContent=col; lbl.title=col;
+        const row = document.createElement('div');
+        row.style.cssText = `display:flex;align-items:center;gap:8px;padding:6px 12px;cursor:pointer;border-bottom:1px solid rgba(0,0,0,0.05);transition:background 0.1s;background:${already ? 'rgba(255,215,0,0.07)' : 'transparent'}`;
+        row.onmouseover = () => { if (!already) row.style.background = 'rgba(255,255,255,0.04)'; };
+        row.onmouseout  = () => { row.style.background = already ? 'rgba(255,215,0,0.07)' : 'transparent'; };
+
+        const chk = document.createElement('span');
+        chk.style.cssText = `width:14px;height:14px;border-radius:3px;border:1px solid ${already ? 'var(--cb-yellow-text)' : 'var(--cb-os1)'};background:${already ? 'var(--cb-yellow-text)' : 'transparent'};display:flex;align-items:center;justify-content:center;flex-shrink:0;font-size:9px;color:var(--modal-bg)`;
+        chk.textContent = already ? '✓' : '';
+
+        const lbl = document.createElement('span');
+        lbl.style.cssText = `flex:1;font-size:11px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:${already ? 'var(--modal-text)' : 'var(--cb-muted)'}`;
+        lbl.textContent = col; lbl.title = col;
+        lbl.style.fontWeight = already ? '600' : '400';
+
         row.appendChild(chk); row.appendChild(lbl);
         row.onclick = () => {
-          if (customFields.includes(col)) customFields=customFields.filter(f=>f!==col);
+          if (customFields.includes(col)) customFields = customFields.filter(f => f !== col);
           else customFields.push(col);
-          rebuildChips(); buildFpList(fpSearch.value);
+          buildFpList(fpSearch.value);
         };
         fpList.appendChild(row);
       });
     };
+
     buildFpList('');
     fpSearch.oninput = () => buildFpList(fpSearch.value);
-    fpPanel.appendChild(fpSearch); fpPanel.appendChild(fpList);
-    fpBtn.onclick = e => { e.stopPropagation(); const open=fpPanel.style.display==='flex'; fpPanel.style.display=open?'none':'flex'; if(!open){buildFpList('');fpSearch.value='';setTimeout(()=>fpSearch.focus(),30);}};
-    document.addEventListener('click', ()=>{fpPanel.style.display='none';});
-    fpPanel.onclick = e=>e.stopPropagation();
-    fpWrap.appendChild(fpBtn); fpWrap.appendChild(fpPanel);
-    sec2.appendChild(fpWrap);
+    sec2.appendChild(fpList);
     body.appendChild(sec2);
     box.appendChild(body);
 
