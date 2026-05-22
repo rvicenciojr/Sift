@@ -1,6 +1,6 @@
 # Sift — Threat Hunting & Incident Response Investigation
 
-A browser-based, offline investigation tool for security analysts. Load a log file, get an adaptive MITRE ATT&CK-driven dashboard, process tree, network map, script decoder, and query builder — all without installing anything.
+A browser-based, offline investigation tool for security analysts and IT professionals. Load a log file, get an adaptive MITRE ATT&CK-driven dashboard, process tree, network map, script decoder, and query builder — all without installing anything.
 
 **No installation. No server. No data leaves your machine.**
 
@@ -44,7 +44,7 @@ That's it. One file, nothing else needed. Works completely offline.
 
 Auto-detected by: `ActionType`, `InitiatingProcessFileName`, `ProcessCommandLine`, `ReportId`
 
-**Features unlocked:** Process Tree · Network Map · Script Decoder · All 22 TTP context cards · Registry card · Hash card with VirusTotal links · Defender KQL query building
+**Features unlocked:** Process Tree · Network Map · Script Decoder · All TTP context cards · Registry card · Hash card with VirusTotal links · Defender KQL query building
 
 | Feature | Defender columns |
 |---------|-----------------|
@@ -116,8 +116,6 @@ EvtxECmd.exe -f C:\Windows\System32\winevt\Logs\Security.evtx --csv C:\output\ -
 
 Auto-detected by: `EventID`, `SubjectUserName`, `TargetUserName`, `LogonType`, `NewProcessName`, `IpAddress`
 
-When detected: badge switches to green **Windows Security** · dashboard shows Security-specific cards · Query Builder generates Sentinel KQL
-
 | Field | Accepted column names |
 |-------|----------------------|
 | Timestamp | `TimeCreated`, `Time Created` |
@@ -139,19 +137,19 @@ When detected: badge switches to green **Windows Security** · dashboard shows S
 
 ### Generic CSV — sift-generic.html
 
-`sift-generic.html` is a lightweight version for anyone who just needs to explore structured data. No security knowledge required. Load any CSV and get:
+`sift-generic.html` is a lightweight version for anyone who needs to explore structured data without the threat hunting intelligence layer. Load any CSV — firewall logs, DHCP, proxy, ops exports, audit logs — and get:
 
-- **Overview** — frequency timeline, top offenders, hosts, users, activity, network connections, hashes (whatever columns are present)
-- **Timeline** — event distribution over time with drag-to-zoom
+- **Overview** — frequency timeline, top offenders, activity, hosts, users, network connections, hashes (whatever columns are present)
+- **Timeline** — event distribution with drag-to-zoom
 - **Bytes chart** — if your data has traffic volume columns
 - **Filters** — full multi-row filter bar with regex, exact match, column picker
-- **General IT investigation profiles** — reshapes the overview for specific use cases
+- **General IT investigation profiles** — reshapes the overview for IT-specific use cases
 
 ![Generic overview dashboard](screenshots/generic-overview.png)
 
-MITRE ATT&CK, Process Tree, Network Map, Script Decoder, and Query Builder are not included — the tool stays clean and focused for non-security use cases.
+MITRE ATT&CK, Process Tree, Network Map, Script Decoder, and Query Builder are not included — the tool stays clean and focused for non-security use.
 
-Any CSV works. The tool scans column names and assembles only the cards it has data for.
+Any CSV works. The tool scans column names and builds only the cards it has data for.
 
 ---
 
@@ -165,33 +163,32 @@ Any CSV works. The tool scans column names and assembles only the cards it has d
    └── ATT&CK Coverage shows which tactics and techniques fired immediately
    └── Event Frequency Timeline shows when activity happened colored by event type
    └── Top Offenders shows top source IPs, targeted accounts, spawned processes
-   └── Attack Chain shows events in chronological order grouped by attack stage
    └── Notable Indicators surface suspicious patterns automatically
    └── Windows Security: Logon Analysis, Spray Detection, Account Changes, Kerberos Events
 
 3. Pick an Investigation Profile  ("Investigating: ▾" dropdown)
-   └── Select the TTP you are hunting (PowerShell, Lateral Movement, Credential Access...)
+   └── General IT profiles available in all variants (Network, User Activity, File Ops, etc.)
+   └── MITRE tactic profiles in security variants (Execution, Lateral Movement, etc.)
    └── Dashboard reshapes — most relevant cards move to the top
-   └── TTP Context Card appears with full per-event detail:
-       host · user · timestamp · parent process · full cmdline · technique-specific fields
+   └── TTP Context Card appears with full per-event detail when a technique profile is selected
 
 4. Click anything in the dashboard to build your filter
    └── Every row, chip, and indicator is clickable — adds a filter and stays in overview
    └── All cards update live as filters stack
-   └── Active filter strip shows what is active with x to remove each layer
+   └── Active filter strip shows what is active with × to remove each layer
 
 5. Hit "→ View in table" when ready
    └── Jumps to raw table showing exactly the filtered rows
    └── All filters remain active in the filter bar
    └── Click 📋 Overview again to return to the dashboard
 
-6. Deep dive with analysis tools
+6. Deep dive with analysis tools  (security variants)
    └── 🌲 Process Tree — full parent/child chain for affected hosts
    └── 🗺 Network Map — process-to-endpoint graph with beaconing detection
    └── 🔍 Script Decoder — decoded PowerShell and AMSI content
    └── All tools respect active filters — scoped to your current filtered dataset
 
-7. Build SIEM queries
+7. Build SIEM queries  (security variants)
    └── Right-click any value → Copy Defender KQL, Chronicle UDM, or Sentinel KQL
    └── Query Builder accumulates multiple IOCs into a single query
 ```
@@ -210,30 +207,21 @@ Open with **📋 Overview** in the analysis toolbar.
 |------|-------|
 | **Event Frequency Timeline** | Stacked bar chart of events over time, colored by event category. Click any bar to set time filter to that window |
 | **Top Offenders** | Top source IPs (failed logons), targeted accounts, spawned processes — each row clickable to filter |
-| **Attack Chain** | Events in chronological order grouped into attack stages (Initial Access → Execution → Persistence...) — click any badge to filter |
+| **Attack Chain** | Events in chronological order grouped into attack stages (Windows Security Event Logs only) |
 
 ### ATT&CK Coverage Card
 
-Runs MITRE ATT&CK detection signatures against your data:
-
-```
-Execution          ████████  T1059.001 PowerShell (847)  T1204.002 Malicious File (4)
-Defense Evasion    █████     T1027 Obfuscation (412)  T1218 LOLBins (89)
-Credential Access  ██        T1003.001 LSASS (4)
-Lateral Movement   █         T1021.002 SMB (12)
-```
-
-Coverage always reflects the **full dataset** regardless of active filters.
+Runs MITRE ATT&CK detection signatures against your data and shows which tactics fired with hit counts. When a tactic or technique is selected in the Investigating dropdown, the coverage card filters to show only that tactic's bar.
 
 ### TTP Selector
 
-Shows only tactics and techniques with hits in your data. Click a tactic to expand, click any technique to add as a filter and switch investigation profile. Supports typeahead search by ID (T1059) or name (PowerShell).
+Shows all tactics with detected techniques. Click a tactic to expand and see individual techniques with hit counts. When a tactic is selected, only that tactic's techniques are shown. Search by technique ID (T1059) or name (PowerShell).
 
 ### Investigation Profiles
 
-The **"Investigating: ▾"** dropdown reshapes the dashboard for a specific investigation type. The dropdown has three sections:
+The **"Investigating: ▾"** dropdown reshapes the dashboard for a specific investigation type. It has three sections:
 
-**Custom Profiles** (top) — any profiles you've saved via the builder appear here for one-click recall.
+**Custom Profiles** (top) — any profiles you've saved appear here for one-click recall.
 
 **General IT** — non-security profiles useful for any structured log data:
 
@@ -247,48 +235,31 @@ The **"Investigating: ▾"** dropdown reshapes the dashboard for a specific inve
 | ⚙️ System Changes | Registry · Activity · Timeline | Change management logs, config drift |
 | 📊 Performance | Processes · Activity · Timeline | Monitoring exports, ops logs |
 
-**Tactic** *(threat hunting variants only)* — MITRE ATT&CK tactics, with detected technique counts:
+**Tactic** *(threat hunting variants only)* — MITRE ATT&CK tactics with detected technique counts:
 
 ![Investigating dropdown — MITRE tactics](screenshots/investigating-dropdown.png)
 
-**Tactic profiles:**
+**Technique profiles** (appear only when detected in your data):
 
-| Profile | Primary cards | Focus |
-|---------|--------------|-------|
-| 🚪 Initial Access | Process Spawn Pairs · Hosts · Timeline | First execution, phishing delivery |
-| ⚡ Execution | Process Spawn Pairs · Processes · Activity | What ran, what spawned it, command lines |
-| 🔒 Persistence | Registry · Processes · Timeline | Run keys, scheduled tasks, services |
-| ⬆ Privilege Escalation | Hosts & Accounts · Processes · Spawn Pairs | UAC bypass, token manipulation |
-| 🥷 Defense Evasion | Process Spawn Pairs · Processes · Registry | LOLBins, obfuscation, log clearing |
-| 🔑 Credential Access | Hosts & Accounts · Hashes · Processes | LSASS dumps, hash theft, kerberoasting |
-| 🔭 Discovery | Hosts & Accounts · Activity · Processes | Recon commands, enumeration |
-| ↔ Lateral Movement | Network · Hosts & Accounts · Timeline | RDP/SMB/WMI connections between hosts |
-| 📦 Collection | Processes · Network · Hosts | Data staging, archive tools |
-| 📡 C2 | Network · Timeline · Hosts | Beaconing, external IPs, suspicious domains |
-| 📤 Exfiltration | Network · Hosts · Timeline | Outbound transfers |
-| 💥 Impact | Activity · Hosts · Timeline | Ransomware, service stops |
-
-**Technique profiles** (appear only when detected — show full per-event TTP Context Card):
-
-T1003.001 LSASS Dump · T1003.002 SAM Dump · T1003.003 NTDS Dump · T1003.006 DCSync · T1021.001 RDP · T1021.002 SMB · T1021.006 WinRM · T1027 Obfuscation · T1027.010 Command Obfuscation · T1036.003 Rename System Utility · T1046 Network Service Discovery · T1047 WMI · T1048.003 Exfil over Unencrypted · T1053.005 Scheduled Task · T1055.001 DLL Injection · T1055.012 Process Hollowing · T1057 Process Discovery · T1059.001 PowerShell · T1059.003 Cmd Shell · T1059.005 VBScript · T1059.007 JavaScript · T1069.001/002 Group Discovery · T1070.001 Clear Event Logs · T1070.004 File Deletion · T1071 C2 · T1071.004 DNS C2 · T1082 System Info Discovery · T1083 File/Dir Discovery · T1087.001/002 Account Discovery · T1090 Proxy · T1105 Tool Transfer · T1110.003 Password Spraying · T1112 Modify Registry · T1113 Screen Capture · T1127.001 MSBuild · T1134.001 Token Impersonation · T1134.004 Parent PID Spoofing · T1136.001/002 Create Account · T1140 Deobfuscate · T1187 Forced Authentication · T1197 BITS Jobs · T1204.002 Malicious File · T1218.004/005/007/009/010/011 LOLBins · T1219 Remote Access Software · T1482 Domain Trust Discovery · T1485 Data Destruction · T1486 Ransomware · T1489 Service Stop · T1490 Inhibit Recovery · T1496 Cryptomining · T1505.003 Web Shell · T1518.001 Security Software Discovery · T1529 System Shutdown · T1543.003 Windows Service · T1546.003/008/012 Event Triggered Exec · T1547.001 Registry Run Key · T1548.002 Bypass UAC · T1550.002 Pass the Hash · T1550.003 Pass the Ticket · T1552.001/002 Unsecured Creds · T1555.003 Browser Creds · T1558.001 Golden Ticket · T1558.003 Kerberoasting · T1560.001 Archive via Utility · T1562 Impair Defenses · T1562.001 Disable Security Tools · T1562.002 Disable Event Logging · T1567.002 Cloud Storage Exfil · T1569.002 Service Execution · T1570 Lateral Tool Transfer · T1571 Non-Standard Port · T1572 Protocol Tunneling
+T1003.001 LSASS Dump · T1003.002 SAM Dump · T1003.003 NTDS Dump · T1003.006 DCSync · T1021.001 RDP · T1021.002 SMB · T1021.006 WinRM · T1027 Obfuscation · T1047 WMI · T1053.005 Scheduled Task · T1055.001 DLL Injection · T1055.012 Process Hollowing · T1059.001 PowerShell · T1059.003 Cmd Shell · T1059.005 VBScript · T1059.007 JavaScript · T1069.001/002 Group Discovery · T1070.001 Clear Event Logs · T1071 C2 · T1082 System Info Discovery · T1087.001/002 Account Discovery · T1105 Ingress Tool Transfer · T1110.003 Password Spraying · T1136.001/002 Create Account · T1187 Forced Authentication · T1197 BITS Jobs · T1204.002 Malicious File · T1218.011 Rundll32 · T1219 Remote Access Software · T1482 Domain Trust Discovery · T1485 Data Destruction · T1486 Ransomware · T1489 Service Stop · T1490 Inhibit Recovery · T1496 Cryptomining · T1505.003 Web Shell · T1529 System Shutdown · T1543.003 Windows Service · T1546.003 WMI Subscription · T1547.001 Registry Run Keys · T1548.002 Bypass UAC · T1550.002 Pass the Hash · T1550.003 Pass the Ticket · T1552.001/002 Credentials · T1555.003 Browser Creds · T1558.001 Golden Ticket · T1558.003 Kerberoasting · T1560.001 Archive via Utility · T1562 Impair Defenses · T1562.001 Disable Security Tools · T1567.002 Cloud Storage Exfil · T1569.002 Service Execution · T1570 Lateral Tool Transfer · T1571 Non-Standard Port · T1572 Protocol Tunneling
 
 ### Custom Profiles
 
 Click **＋ Build custom profile…** at the bottom of the Investigating dropdown to open the profile builder:
 
-- **Pick standard cards** with a checkbox grid — selected cards get a `P1–P4` (primary row) or `S1+` (secondary rows) position badge so you control layout order
-- **Pin any column as a custom field card** via the `＋ Add field` picker — shows top values for that column with click-to-filter
-- **💾 Save** to persist the profile to browser localStorage (appears at the top of the Investigating dropdown as a saved profile)
-- **✓ Apply** to use without saving (session only)
+![Custom profile builder — field picker](screenshots/investigating-dropdown.png)
 
-When a custom profile is active, the overview shows only the cards you selected — no MITRE coverage, no notable indicators, no Top-N — pure custom dashboard. Saved profiles can be deleted from the dropdown with the × button.
+**Standard Cards** — choose which overview cards to show and in what order. Cards marked `P1–P4` appear in the primary top row; `S1+` appear in secondary rows below.
 
-### Cell Selection & Copy
+**Column Cards** — pin any column from your loaded file as a frequency card. All columns from your CSV are displayed as a scrollable checklist. Click to select/deselect. Selected columns appear as overview cards showing top values with click-to-filter.
 
-- **Click and drag** across cells in the table to select a range (Excel-style)
-- **Shift+click** extends the selection
-- **Right-click** on selected cells → `Copy selection` (tab-separated, paste into Excel) or `Copy selection as JSON`
-- **Ctrl/Cmd+C** also copies as tab-separated values
+**Save** persists the profile to browser localStorage — it reappears at the top of the Investigating dropdown. **Apply** uses it for this session only.
+
+When a custom profile is active, the overview shows **only** the cards you selected — MITRE coverage, indicators, Top-N, and the frequency timeline are suppressed for a clean focused view.
+
+### Custom Field Cards
+
+The **＋ Field** button in the overview header lets you pin any column as a frequency card without building a full custom profile. Cards show top 25 values with click-to-filter. Dismiss with × to remove.
 
 ### Windows Security specific cards
 
@@ -311,24 +282,34 @@ Always shown at the bottom, sorted by active profile relevance.
 |----------|------|
 | 🔴 Critical | Encoded PowerShell (-enc / -encodedCommand) |
 | 🔴 Critical | Inline Base64 decode (FromBase64String) |
-| 🔴 Critical | Office application spawning shell (WINWORD/EXCEL → cmd/powershell) |
-| 🔴 Critical | Credential dumping (lsass, mimikatz, comsvcs MiniDump, lazagne) |
+| 🔴 Critical | Office application spawning shell |
+| 🔴 Critical | Credential dumping (lsass, mimikatz, comsvcs MiniDump) |
+| 🔴 Critical | Process injection patterns |
+| 🔴 Critical | Web server spawning shell (web shell activity) |
+| 🔴 Critical | Forced authentication / NTLM capture tool |
+| 🔴 Critical | Data destruction command pattern |
 | 🟠 High | Scheduled task creation |
 | 🟠 High | WMI remote execution |
 | 🟠 High | Service installation or modification |
 | 🟠 High | LOLBin usage (certutil, mshta, rundll32, regsvr32, wscript, bitsadmin) |
-| 🟠 High | PowerShell download cradle (WebClient / IEX / Invoke-WebRequest) |
-| 🟠 High | Execution from suspicious path (%TEMP%, AppData, Users\Public) |
-| 🟠 High | Heavily obfuscated command line (>500 characters) |
+| 🟠 High | PowerShell download cradle |
+| 🟠 High | Remote access software detected (AnyDesk, TeamViewer, ScreenConnect, ngrok) |
+| 🟠 High | BITS job used for download or persistence |
+| 🟠 High | Account creation command detected |
+| 🟠 High | Critical service stopped (backup/AV/database) |
+| 🟠 High | Cloud storage contact (potential exfiltration) |
+| 🟠 High | Execution from suspicious path (%TEMP% / AppData / Public) |
+| 🟠 High | Heavily obfuscated / long command line (>500 chars) |
 | 🟡 Medium | High-port outbound connections (>49151) |
 | 🟡 Medium | Suspicious TLD contact (.xyz, .top, .tk, .ru, .pw, .cc) |
-| 🔴 Critical | Chronicle Critical / High severity events |
+| 🟡 Medium | Domain trust discovery |
+| 🟡 Medium | Lateral tool transfer via admin share |
 
 ---
 
 ## Analysis Tools
 
-All tools respect active filters — scoped to the current filtered dataset.
+All tools respect active filters — scoped to your current filtered dataset.
 
 ### 🌲 Process Tree
 
@@ -348,16 +329,6 @@ Hierarchical parent/child process view. Click any node for full detail: cmdline,
 | Account Changes | 🟣 Purple | 4720 Create, 4725 Disable, 4726 Delete, 4738 Modify |
 | Group Changes | 🟣 Violet | 4728/4732/4756 Group Membership |
 | Log / Policy | 🩷 Pink | 1102/1100 Log Clear, 4719 Audit Policy Change |
-
-**Enable process creation logging (Windows):**
-
-```powershell
-# Enable 4688 process creation audit
-auditpol /set /subcategory:"Process Creation" /success:enable /failure:enable
-
-# Enable command line in 4688 events
-reg add "HKLM\Software\Microsoft\Windows\CurrentVersion\Policies\System\Audit" /v ProcessCreationIncludeCmdLine_Enabled /t REG_DWORD /d 1
-```
 
 ### 🗺 Network Map
 
@@ -394,22 +365,13 @@ Network traffic volume (bytes in/out per time bucket). Requires bytes columns in
 
 ### 🔨 Query Builder
 
+*(Security variants only — not available in sift-generic)*
+
 Floating draggable panel. Right-click any value → "Add to Query Builder" to accumulate IOCs. Toggle AND/OR logic.
 
 - **Defender** → Advanced Hunting KQL
 - **Chronicle** → UDM search query
 - **Windows Security** → Sentinel SecurityEvent KQL
-
-```kql
-// Example Sentinel KQL output
-SecurityEvent
-| where EventID == 4688
-| where CommandLine has "mimikatz"
-
-SecurityEvent
-| where EventID == 4625
-| where IpAddress == "185.220.101.45"
-```
 
 ---
 
@@ -417,7 +379,16 @@ SecurityEvent
 
 ![Table view](screenshots/table.png)
 
-The main data grid — sortable columns, row-level highlights, filter controls in the bar above, pagination below with row count and Export on the bottom right.
+The main data grid — sortable columns, row-level highlights, filter controls in the bar above. Pagination and row count at the bottom right with an Export button.
+
+### Cell Selection & Copy
+
+- **Click and drag** across cells to select a range (Excel-style blue highlight)
+- **Shift+click** extends the selection from the starting point
+- **Ctrl/Cmd+C** copies the selected cells as tab-separated values (paste into Excel)
+- **Right-click** on selected cells → `Copy selection` (TSV) or `Copy selection as JSON`
+
+---
 
 ## Filter Bar
 
@@ -432,7 +403,13 @@ The main data grid — sortable columns, row-level highlights, filter controls i
 | ☑ Filters enabled | Temporarily disable all filters without deleting them |
 | 🎯 TTP chip | Added when clicking a TTP — shows `T1059.001 · PowerShell` |
 
+**Regex filters:** If a regex pattern is invalid, the filter input shows a red border and tooltip with the error. The filter passes all rows rather than silently hiding everything.
+
+**OR logic:** Multiple filter rows with OR connectors correctly combine — blank filter rows are excluded from evaluation so they don't interfere with OR results.
+
 **Column reordering:** Right-click any column header → Move left / Move right / Move to first / Move to last. Or drag column headers directly.
+
+**Per-tab state:** Filter rows, column filters, timestamp range, highlights, and investigation profile are all saved per tab and restored when switching back.
 
 ---
 
@@ -448,11 +425,12 @@ Available everywhere — table cells, overview rows, context card fields, proces
 | Exclude this value | Adds a does-not-contain filter |
 | Copy value | Copies raw value |
 | Copy row as JSON | Full row as formatted JSON |
-| Copy row as CSV | Full row as CSV line |
 | Copy Chronicle UDM query | Schema-accurate UDM search |
 | Copy Defender KQL | Schema-accurate Advanced Hunting KQL |
 | Copy Sentinel KQL | SecurityEvent KQL (Windows Security logs) |
-| Add to Query Builder | Adds to the floating multi-IOC panel |
+| Add to Query Builder | Adds to the floating multi-IOC panel *(security variants only)* |
+| Copy selection | Copies selected cells as tab-separated values |
+| Copy selection as JSON | Copies selected cells as JSON |
 | VirusTotal | Opens VT search for IPs, hashes, domains, URLs |
 | Shodan | Opens Shodan for IPs |
 | CyberChef | Opens CyberChef with value pre-loaded |
@@ -465,12 +443,15 @@ Available everywhere — table cells, overview rows, context card fields, proces
 |--------|-------|--------|
 | Escape | Anywhere | Close open modal / sidebar / picker |
 | Arrow left / right | Row detail open | Navigate to previous / next row |
+| Ctrl/Cmd+C | Cells selected | Copy as tab-separated values |
 | Hover list + type letters | Overview scrollable lists | Typeahead jump to first matching item |
 | Hover TTP Selector + type | Overview TTP panel | Keystrokes route to search box |
 | Drag on timeline | Timeline chart | Select time range |
 | Double-click on timeline | Timeline chart | Clear time range filter |
 | Drag column header | Table header | Reorder column |
 | Right-click column header | Table header | Move / Sort / Hide |
+| Click + drag in table | Table cells | Select a range of cells (Excel-style) |
+| Shift + click | Table cells | Extend selection |
 
 ---
 
@@ -503,7 +484,8 @@ sift/
 │       ├── windows.js
 │       └── evtx-parser.js
 ├── variants/            — one folder per deliverable
-│   ├── chronicle-defender/manifest.json
+│   ├── chronicle-defender/manifest.json  → hunt-investigator.html
+│   ├── generic/manifest.json             → sift-generic.html
 │   ├── chronicle-windows/manifest.json
 │   ├── chronicle/manifest.json
 │   ├── defender-windows/manifest.json
@@ -523,19 +505,55 @@ python build.py
 # Build a single variant by folder name
 python build.py windows
 python build.py chronicle-defender
+
+# Build a custom multi-source package on the fly
+python build.py --custom chronicle defender windows
+# → dist/sift-custom-chronicle-defender-windows.html
+
+# List all available modules
+python build.py --list
 ```
 
 Each built file in `dist/` is fully self-contained — all JS and CSS is inlined. Send just the HTML file, nothing else is needed.
 
-### How the build works
+### Naming convention
 
-`build.py` reads each `manifest.json`, takes `template.html` as the shell, and inlines every source file directly into the HTML as `<script>` and `<style>` blocks:
+- **Default title for new variants:** `"Sift"` — scales as more connectors are added without combinatorial naming
+- **Filename stays descriptive:** the `name` field becomes the output HTML filename
+- **Internal / private variants:** can use any custom title (e.g. `hunt-investigator.html` is titled `Hunt Investigator`)
 
-```
-src/shared/*.js  ──┐
-src/shared/*.css ──┤
-src/modules/*.js ──┤── build.py ──► dist/sift-{variant}.html
-template.html    ──┘                (~650 KB, zero external dependencies)
+### Feature flags
+
+The manifest `features` object controls what's included in a build. Flags set to `false` disable features at build time — the code is not included in the output file.
+
+| Flag | Effect when `false` |
+|------|---------------------|
+| `evtx` | No .evtx file support |
+| `process-tree` | Process Tree button hidden |
+| `network-map` | Network Map button hidden |
+| `script-decoder` | Script Decoder button hidden |
+| `query-builder` | Query Builder button hidden, removed from context menu |
+| `mitre` | MITRE ATT&CK coverage, TTP selector, notable indicators, and attack chain all disabled |
+
+Example — the generic variant:
+```json
+{
+  "name": "sift-generic",
+  "title": "Sift",
+  "header": "Sift",
+  "modules": [],
+  "features": {
+    "chronicle": false,
+    "defender": false,
+    "windows": false,
+    "evtx": false,
+    "mitre": false,
+    "process-tree": false,
+    "network-map": false,
+    "script-decoder": false,
+    "query-builder": false
+  }
+}
 ```
 
 ### Adding a new variant
@@ -560,32 +578,21 @@ template.html    ──┘                (~650 KB, zero external dependencies)
 
 2. Run `python build.py my-variant`
 
-### Naming convention
+### Building a custom multi-source package
 
-- **Default title for new variants:** `"Sift"` — simple, scales as more connectors are added without combinatorial naming explosion
-- **Filename stays descriptive:** the `name` field becomes the output HTML filename, so `sift-my-variant` → `sift-my-variant.html` — users know what's inside before opening
-- **Internal / private variants:** can use any custom title (e.g. the work-only `hunt-investigator.html` is titled `Hunt Investigator`)
+`build.py --custom <module>...` assembles a one-off HTML on demand without creating a permanent variant folder:
 
-Users can always edit the `title` and `header` fields in any manifest to brand their own build.
+```bash
+python build.py --custom elastic splunk
+python build.py --custom chronicle defender windows
+python build.py --list   # show all available modules
+```
 
 ### Adding a new data source
 
 1. Create `src/modules/splunk.js` with detection and UI code
 2. Add it to any variant manifest under `"modules"`
 3. Run `python build.py`
-
-### Building a custom multi-source package
-
-`build.py --custom <module>...` assembles a one-off HTML on demand without creating a permanent variant folder:
-
-```bash
-python build.py --custom chronicle defender windows
-# → dist/sift-custom-chronicle-defender-windows.html
-
-python build.py --list   # show all available modules
-```
-
-Useful for ad-hoc combinations that don't need to live in `variants/`.
 
 ### Header name override
 
@@ -595,9 +602,8 @@ Any variant can override the header `<h1>` by adding a `"header"` field to its m
 {
   "name": "sift-my-variant",
   "title": "Sift",
-  "header": "My Custom Header Text",
-  ...
+  "header": "My Custom Header Text"
 }
 ```
 
-If `"header"` is omitted, the template's default header (`Sift`) is used.
+If `"header"` is omitted, the template's default (`Sift`) is used.
