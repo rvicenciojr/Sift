@@ -837,6 +837,7 @@ self.onmessage = function(e) {
   self.postMessage({ type: 'progress', msg: 'Building frequency timeline…' });
   data.freqTimeline = computeFreqTimeline(cols, isWindowsSecLog, n);
 
+
   self.postMessage({ type: 'progress', msg: 'Building top-N tables…' });
   data.topN = computeTopN(cols, s, n, isWindowsSecLog);
 
