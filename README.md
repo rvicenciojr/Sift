@@ -243,18 +243,29 @@ The **"Investigating: ▾"** dropdown reshapes the dashboard for a specific inve
 
 T1003.001 LSASS Dump · T1003.002 SAM Dump · T1003.003 NTDS Dump · T1003.006 DCSync · T1021.001 RDP · T1021.002 SMB · T1021.006 WinRM · T1027 Obfuscation · T1047 WMI · T1053.005 Scheduled Task · T1055.001 DLL Injection · T1055.012 Process Hollowing · T1059.001 PowerShell · T1059.003 Cmd Shell · T1059.005 VBScript · T1059.007 JavaScript · T1069.001/002 Group Discovery · T1070.001 Clear Event Logs · T1071 C2 · T1082 System Info Discovery · T1087.001/002 Account Discovery · T1105 Ingress Tool Transfer · T1110.003 Password Spraying · T1136.001/002 Create Account · T1187 Forced Authentication · T1197 BITS Jobs · T1204.002 Malicious File · T1218.011 Rundll32 · T1219 Remote Access Software · T1482 Domain Trust Discovery · T1485 Data Destruction · T1486 Ransomware · T1489 Service Stop · T1490 Inhibit Recovery · T1496 Cryptomining · T1505.003 Web Shell · T1529 System Shutdown · T1543.003 Windows Service · T1546.003 WMI Subscription · T1547.001 Registry Run Keys · T1548.002 Bypass UAC · T1550.002 Pass the Hash · T1550.003 Pass the Ticket · T1552.001/002 Credentials · T1555.003 Browser Creds · T1558.001 Golden Ticket · T1558.003 Kerberoasting · T1560.001 Archive via Utility · T1562 Impair Defenses · T1562.001 Disable Security Tools · T1567.002 Cloud Storage Exfil · T1569.002 Service Execution · T1570 Lateral Tool Transfer · T1571 Non-Standard Port · T1572 Protocol Tunneling
 
-### Chart Type Toggles
+### Card Settings — ··· Menu
 
-Several overview cards support switching between a list view and a pie/donut chart. Look for the **◉ Chart** button in the card's title bar.
+Every overview card has a **···** button on the far right of the title bar. Click it to open a compact dropdown with two sections:
 
-| Card | Sections with chart toggle |
-|------|---------------------------|
-| Activity | Full action type breakdown |
-| Hosts & Accounts | Devices section · Accounts section (independent) |
-| Processes | Top process names |
-| Network | External IPs |
+**Size** — controls the card's width in the grid:
+| Option | Width |
+|--------|-------|
+| Small | ~25% |
+| Medium | ~33% (default) |
+| Large | ~50% |
+| Full | 100% |
 
-Click any slice or legend item in the chart to filter. **≡ List** switches back to the scrollable list. Cards with charts can be resized wider to give the chart more room.
+**View as** *(appears on supporting cards)* — toggle between list and pie/donut chart:
+- Activity, Processes, Hosts & Accounts, Network IPs all support this
+- Chart slices are clickable to filter, same as list rows
+
+### Drag to Reorder & Resize Cards
+
+**⠿ Drag handle** — grab and drag any card to a new position. A ghost of the card follows your cursor and a dashed placeholder shows the drop target. Release to commit the new order.
+
+**Right-edge handle** — a thin vertical grip on the right side of each card. Drag left/right to resize the card width, snapping to Small/Medium/Large/Full. A tooltip shows the current size as you drag.
+
+**Bottom-edge handle** — a thin horizontal grip at the bottom of each card. Drag down to make the card taller, up to shrink it. The inner scrollable area expands with the card. Drag close to the original height to snap back to auto.
 
 ### Custom Profiles
 
