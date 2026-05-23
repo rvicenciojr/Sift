@@ -79,8 +79,8 @@ var SIFT_FEATURES = {"chronicle":true,"defender":true,"windows":false,"evtx":fal
       --modal-input-bg:  rgba(0,0,0,0.3);
       --modal-input-bdr: #304D4A;
       --modal-text:      #FFFFFF;
-      --modal-muted:     #778F8D;
-      --modal-dim:       #537173;
+      --modal-muted:     #9AAEAC;
+      --modal-dim:       #7A9D9B;
       --modal-code-bg:   rgba(0,0,0,0.3);
       --modal-canvas-bg: rgba(0,0,0,0.12);
     }
@@ -108,8 +108,8 @@ var SIFT_FEATURES = {"chronicle":true,"defender":true,"windows":false,"evtx":fal
     --modal-input-bg:  rgba(0,0,0,0.3);
     --modal-input-bdr: #304D4A;
     --modal-text:      #FFFFFF;
-    --modal-muted:     #778F8D;
-    --modal-dim:       #537173;
+    --modal-muted:     #9AAEAC;
+    --modal-dim:       #7A9D9B;
     --modal-code-bg:   rgba(0,0,0,0.3);
     --modal-canvas-bg: rgba(0,0,0,0.12);
   }
@@ -1970,6 +1970,33 @@ var SIFT_FEATURES = {"chronicle":true,"defender":true,"windows":false,"evtx":fal
     padding: 0;
   }
 
+  /* Chart toggle buttons — visible across all cards */
+  .ov-chart-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 9px;
+    margin: 5px 0 3px;
+    background: rgba(45,212,191,0.08);
+    border: 1px solid rgba(45,212,191,0.4);
+    border-radius: 4px;
+    color: #2dd4bf;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+    white-space: nowrap;
+  }
+  .ov-chart-btn:hover {
+    background: rgba(45,212,191,0.16);
+    border-color: rgba(45,212,191,0.7);
+  }
+  .ov-chart-btn.active {
+    background: rgba(45,212,191,0.15);
+    border-color: #2dd4bf;
+    color: #2dd4bf;
+  }
+
   /* Card sizes — cycle with the resize button */
   .ov-grid .ov-card.ov-size-compact { flex: 0 1 calc(25% - 9px);  min-width: 180px; }
   .ov-grid .ov-card.ov-size-normal  { flex: 1 1 calc(33% - 8px);  min-width: 240px; }
@@ -1986,18 +2013,7 @@ var SIFT_FEATURES = {"chronicle":true,"defender":true,"windows":false,"evtx":fal
   }
 
   /* Drag state */
-  .ov-grid .ov-card[draggable="true"] { cursor: default; }
-  .ov-grid .ov-card[draggable="true"]:hover { box-shadow: 0 0 0 1px rgba(255,215,0,0.2); }
-  .ov-grid .ov-card.ov-dragging { opacity: 0.4; }
-  .ov-drop-indicator {
-    width: 3px;
-    background: var(--cb-yellow);
-    border-radius: 2px;
-    align-self: stretch;
-    flex-shrink: 0;
-    min-height: 40px;
-    pointer-events: none;
-  }
+  .ov-grid .ov-card:hover { box-shadow: 0 0 0 1px rgba(255,215,0,0.15); }
 
   /* ── Overview Dashboard ── */
   #overviewPanel {
@@ -2330,7 +2346,7 @@ var SIFT_FEATURES = {"chronicle":true,"defender":true,"windows":false,"evtx":fal
   /* Title bar strip — extends to card edges via negative side margins only */
   .ov-card-title {
     background: var(--cb-dark);
-    color: var(--cb-os5);
+    color: var(--cb-yellow);
     font-size: 13px;
     font-weight: 700;
     letter-spacing: .04em;
@@ -2349,8 +2365,8 @@ var SIFT_FEATURES = {"chronicle":true,"defender":true,"windows":false,"evtx":fal
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    color: var(--cb-os3);
-    margin-left: auto;
+    color: rgba(255,255,255,0.65);
+    margin-left: 8px;
   }
 
   .ov-kv {
@@ -11847,8 +11863,10 @@ const TECHNIQUE_PROFILES = {
   var _ovProfile       = null; // null = default | tactic name | technique ID
   var _ovCustomActive  = null; // active custom profile { name, cards, customFields } | null
   var _ovCardSizes     = {};   // { cardKey: 'compact'|'normal'|'wide'|'full' }
+  var _ovCardHeights   = {};   // { cardKey: pixels (number) } — explicit height, null = auto
   var _ovCardOrder     = [];   // [cardKey, ...] — current drag order, empty = default
   var _ovDragKey       = null; // key of card being dragged
+  var _ovChartModes    = {};   // { cardId: 'list'|'pie'|'bars'|'donut' } — persist chart toggles across re-renders
 
   // ── All standard card definitions for the custom profile builder ──────────────
   var CARD_DEFS = [
@@ -11959,7 +11977,7 @@ const TECHNIQUE_PROFILES = {
     _ovHoveredList = null; _ovHoveredRegion = null;
   }
 
-  function resetOvProfile() { _ovProfile = null; _ovCardSizes = {}; _ovCardOrder = []; }
+  function resetOvProfile() { _ovProfile = null; _ovCardSizes = {}; _ovCardHeights = {}; _ovCardOrder = []; _ovChartModes = {}; }
 
   function _sortIndicatorsByProfile(indicators) {
     if (!_ovProfile || !indicators.length) return indicators;
@@ -12069,6 +12087,8 @@ const TECHNIQUE_PROFILES = {
   function renderFromData(d, rows) {
     const panel = document.getElementById('overviewPanel');
     if (!panel || !overviewVisible) return;
+    // Clean up any card settings dropdowns portalled to body from the previous render
+    document.querySelectorAll('.ov-card-dd-portal').forEach(el => el.remove());
     panel.innerHTML = '';
 
     const s = d.s;
@@ -12282,8 +12302,8 @@ const TECHNIQUE_PROFILES = {
     // ── Feature 1: Event Frequency Timeline — suppressed in custom profiles ───────
     if (!_ovCustomActive && d.freqTimeline) panel.appendChild(buildFreqTimelineCard(d.freqTimeline));
 
-    // ── Feature 2: Top-N Offenders — suppressed in custom profiles ────────────────
-    const topNCard = (!_ovCustomActive && d.topN) ? buildTopNCard(d.topN) : null;
+    // ── Feature 2: Top-N Offenders — always shown, useful for pivot regardless of profile ──
+    const topNCard = d.topN ? buildTopNCard(d.topN) : null;
     if (topNCard) panel.appendChild(topNCard);
 
     // ── Build all available data cards ───────────────────────────────────────────
@@ -12365,12 +12385,10 @@ const TECHNIQUE_PROFILES = {
     const primary   = (profileDef.primary   || []).filter(k => cards[k]);
     const secondary = (profileDef.secondary || []).filter(k => cards[k]);
     const used      = new Set([...primary, ...secondary]);
-    // field: cards always appended after standard cards (whether custom profile or not)
     const fieldCards = Object.keys(cards).filter(k => k.startsWith('field:'));
     const remaining  = _ovCustomActive ? [] : Object.keys(cards).filter(k => !used.has(k) && !k.startsWith('field:'));
     const ordered    = [...primary, ...secondary, ...remaining, ...fieldCards];
 
-    // Apply saved card order if any
     let finalOrder = ordered;
     if (_ovCardOrder.length) {
       const orderSet = new Set(_ovCardOrder);
@@ -12378,58 +12396,25 @@ const TECHNIQUE_PROFILES = {
       finalOrder = [..._ovCardOrder.filter(k => cards[k]), ...extra];
     }
 
-    // ── Single flex-wrap grid — supports drag reorder and resize ──────────────
     const grid = document.createElement('div'); grid.className = 'ov-grid';
 
     finalOrder.forEach(key => {
       const card = cards[key];
       if (!card) return;
-
-      // Set size class
       const size = _ovCardSizes[key] || 'normal';
       card.classList.remove('ov-size-compact','ov-size-normal','ov-size-wide','ov-size-full');
       card.classList.add('ov-size-' + size);
+      // Apply stored height (height resize)
+      const cardH = _ovCardHeights[key];
+      if (cardH) {
+        card.style.minHeight = cardH + 'px';
+        card.querySelectorAll('.ov-card-list, .ov-ctx-list, .ov-chart-area, .ov-activity-chart').forEach(l => l.style.maxHeight = Math.max(80, cardH - 60) + 'px');
+      } else {
+        card.style.minHeight = '';
+      }
       card.dataset.cardKey = key;
-      card.setAttribute('draggable', 'true');
-
-      // Add drag handle and resize button to card title bar if not already there
-      _addCardControls(card, key);
-
-      // Drag events
-      card.addEventListener('dragstart', e => {
-        _ovDragKey = key;
-        e.dataTransfer.effectAllowed = 'move';
-        setTimeout(() => card.style.opacity = '0.4', 0);
-      });
-      card.addEventListener('dragend', () => {
-        card.style.opacity = '';
-        grid.querySelectorAll('.ov-drop-indicator').forEach(el => el.remove());
-        _ovDragKey = null;
-      });
-      card.addEventListener('dragover', e => {
-        e.preventDefault();
-        if (!_ovDragKey || _ovDragKey === key) return;
-        grid.querySelectorAll('.ov-drop-indicator').forEach(el => el.remove());
-        const rect = card.getBoundingClientRect();
-        const before = e.clientX < rect.left + rect.width / 2;
-        const indicator = document.createElement('div'); indicator.className = 'ov-drop-indicator';
-        indicator.style.cssText = 'width:3px;background:var(--cb-yellow);border-radius:2px;align-self:stretch;flex-shrink:0;min-height:40px';
-        if (before) grid.insertBefore(indicator, card);
-        else card.after(indicator);
-      });
-      card.addEventListener('drop', e => {
-        e.preventDefault();
-        if (!_ovDragKey || _ovDragKey === key) return;
-        const rect = card.getBoundingClientRect();
-        const before = e.clientX < rect.left + rect.width / 2;
-        // Build new order
-        const cur = [...grid.querySelectorAll('[data-card-key]')].map(el => el.dataset.cardKey).filter(k => k !== _ovDragKey);
-        const targetIdx = cur.indexOf(key);
-        cur.splice(before ? targetIdx : targetIdx + 1, 0, _ovDragKey);
-        _ovCardOrder = cur;
-        scheduleOverviewRender();
-      });
-
+      card.removeAttribute('draggable');
+      _addCardControls(card, key, grid);
       grid.appendChild(card);
     });
 
@@ -12438,19 +12423,102 @@ const TECHNIQUE_PROFILES = {
 
   const _SIZE_CYCLE = ['normal','wide','full','compact'];
 
-  function _addCardControls(card, key) {
+  const _sizeLabels = { compact:'Compact', normal:'Normal', wide:'Wide', full:'Full' };
+
+  function _addCardControls(card, key, grid) {
     const title = card.querySelector('.ov-card-title');
     if (!title || title.querySelector('.ov-card-drag-handle')) return;
 
-    // Drag handle
+    // ── Drag handle — mouse-event based (no HTML5 DnD) ────────────────────────
     const handle = document.createElement('span'); handle.className = 'ov-card-drag-handle';
     handle.textContent = '⠿'; handle.title = 'Drag to reorder';
-    handle.style.cssText = 'cursor:grab;color:var(--cb-os3);font-size:14px;margin-right:6px;flex-shrink:0;user-select:none;transition:color .15s';
-    handle.onmouseover = () => handle.style.color = 'var(--cb-text-inverse)';
-    handle.onmouseout  = () => handle.style.color = 'var(--cb-os3)';
+    handle.style.cssText = 'cursor:grab;color:rgba(255,215,0,0.5);font-size:14px;margin-right:6px;flex-shrink:0;user-select:none;transition:color .15s;-webkit-user-select:none';
+    handle.onmouseover = () => handle.style.color = 'var(--cb-yellow)';
+    handle.onmouseout  = () => handle.style.color = 'rgba(255,215,0,0.5)';
+
+    handle.onmousedown = e => {
+      if (e.button !== 0) return;
+      e.preventDefault(); e.stopPropagation();
+
+      const rect = card.getBoundingClientRect();
+      // Bug fix 1: offsetX/Y relative to card origin, not the handle span
+      const offsetX = e.clientX - rect.left;
+      const offsetY = e.clientY - rect.top;
+
+      // Ghost element follows cursor maintaining original card offset
+      const ghost = card.cloneNode(true);
+      ghost.style.cssText = `position:fixed;left:${rect.left}px;top:${rect.top}px;width:${rect.width}px;max-height:${rect.height}px;overflow:hidden;opacity:0.75;pointer-events:none;z-index:9999;box-shadow:0 12px 40px rgba(0,0,0,0.5);border-radius:8px;border:2px solid var(--cb-yellow);transition:none`;
+      document.body.appendChild(ghost);
+
+      // Placeholder holds the spot
+      const g = grid || card.closest('.ov-grid');
+      // Bug fix: placeholder mirrors the dragged card's actual size class
+      const dragSize = _ovCardSizes[key] || 'normal';
+      const sizeFlexMap = { compact:'0 1 calc(25% - 9px)', normal:'1 1 calc(33% - 8px)', wide:'2 1 calc(50% - 6px)', full:'1 0 100%' };
+      const ph = document.createElement('div');
+      ph.dataset.placeholder = '1';
+      ph.style.cssText = `flex:${sizeFlexMap[dragSize]};min-width:180px;border:2px dashed rgba(255,215,0,0.4);border-radius:8px;background:rgba(255,215,0,0.03);min-height:60px`;
+      card.parentNode.insertBefore(ph, card);
+      card.style.display = 'none';
+
+      const onMove = ev => {
+        // Bug fix 1: use computed offset from card rect
+        ghost.style.left = (ev.clientX - offsetX) + 'px';
+        ghost.style.top  = (ev.clientY - offsetY) + 'px';
+
+        // Bug fix 3: fallback to grid end when only one other card
+        const siblings = [...g.querySelectorAll('[data-card-key]')];
+        let bestEl = null; let bestBefore = true; let bestDist = Infinity;
+        siblings.forEach(sib => {
+          if (sib === card) return;
+          const r = sib.getBoundingClientRect();
+          const midX = r.left + r.width / 2;
+          const dist = Math.abs(ev.clientX - midX) + Math.abs(ev.clientY - (r.top + r.height / 2)) * 0.3;
+          if (dist < bestDist) { bestDist = dist; bestEl = sib; bestBefore = ev.clientX < midX; }
+        });
+        if (bestEl) {
+          if (bestBefore) bestEl.before(ph);
+          else bestEl.after(ph);
+        } else {
+          // Bug fix 3: no siblings found — append to end of grid
+          g.appendChild(ph);
+        }
+      };
+
+      const cleanup = () => {
+        ghost.remove();
+        if (ph.parentNode) ph.remove();
+        card.style.display = '';
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', onUp);
+        // Bug fix 4: also clean up on window blur
+        window.removeEventListener('blur', cleanup);
+      };
+
+      const onUp = () => {
+        // Bug fix 2: read order from DOM before removing placeholder
+        const allKeys = [...g.children]
+          .filter(el => el.dataset.cardKey || el.dataset.placeholder)
+          .reduce((acc, el) => {
+            if (el.dataset.placeholder) acc.push(key); // insert dragged card here
+            else if (el.dataset.cardKey !== key) acc.push(el.dataset.cardKey);
+            return acc;
+          }, []);
+        _ovCardOrder = allKeys;
+
+        cleanup();
+        scheduleOverviewRender();
+      };
+
+      // Bug fix 4: clean up if window loses focus
+      window.addEventListener('blur', cleanup, { once: true });
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', onUp);
+    };
+
     title.insertBefore(handle, title.firstChild);
 
-    // Dismiss button — only for pinned field cards (field:ColumnName)
+    // Dismiss button — only for pinned field cards
     if (key.startsWith('field:')) {
       const colName = key.slice(6);
       const dismiss = document.createElement('span');
@@ -12461,9 +12529,7 @@ const TECHNIQUE_PROFILES = {
       dismiss.onmouseout  = () => dismiss.style.color = 'var(--cb-muted)';
       dismiss.onclick = e => {
         e.stopPropagation();
-        if (_ovCustomActive) {
-          _ovCustomActive.customFields = (_ovCustomActive.customFields || []).filter(f => f !== colName);
-        }
+        if (_ovCustomActive) _ovCustomActive.customFields = (_ovCustomActive.customFields || []).filter(f => f !== colName);
         _ovCardOrder = _ovCardOrder.filter(k => k !== key);
         delete _ovCardSizes[key];
         scheduleOverviewRender();
@@ -12471,82 +12537,230 @@ const TECHNIQUE_PROFILES = {
       title.appendChild(dismiss);
     }
 
-    // Resize button — always visible, cycles through sizes on click
-    const resizeBtn = document.createElement('span'); resizeBtn.className = 'ov-card-resize-btn';
-    resizeBtn.style.cssText = 'cursor:pointer;font-size:11px;margin-left:6px;flex-shrink:0;padding:1px 5px;border-radius:3px;border:1px solid var(--cb-os1);color:var(--cb-muted);background:transparent;transition:all .15s;white-space:nowrap';
-    const _sizeLabels = { compact:'Compact', normal:'Normal', wide:'Wide', full:'Full' };
-    const _updateResizeBtn = () => {
-      const s = _ovCardSizes[key] || 'normal';
-      resizeBtn.textContent = _sizeLabels[s] || s;
-      resizeBtn.title = `Current: ${s} — click to cycle, or drag the right edge`;
-      resizeBtn.style.borderColor = s !== 'normal' ? 'rgba(255,215,0,0.5)' : 'var(--cb-os1)';
-      resizeBtn.style.color       = s !== 'normal' ? 'var(--cb-yellow-text)' : 'var(--cb-muted)';
-    };
-    _updateResizeBtn();
-    resizeBtn.onmouseover = () => resizeBtn.style.background = 'rgba(255,255,255,0.06)';
-    resizeBtn.onmouseout  = () => resizeBtn.style.background = 'transparent';
-    resizeBtn.onclick = e => {
-      e.stopPropagation();
-      const cur = _ovCardSizes[key] || 'normal';
-      const next = _SIZE_CYCLE[(_SIZE_CYCLE.indexOf(cur) + 1) % _SIZE_CYCLE.length];
-      _ovCardSizes[key] = next;
-      card.classList.remove('ov-size-compact','ov-size-normal','ov-size-wide','ov-size-full');
-      card.classList.add('ov-size-' + next);
-      _updateResizeBtn();
-    };
-    title.appendChild(resizeBtn);
+    // ── Settings dropdown — size + chart type ────────────────────────────────
+    const _userSizes = [
+      { key:'compact', label:'Small',  icon:'▪' },
+      { key:'normal',  label:'Medium', icon:'▪▪' },
+      { key:'wide',    label:'Large',  icon:'▪▪▪' },
+      { key:'full',    label:'Full',   icon:'▬' },
+    ];
+    const chartKey = card.dataset.chartKey || null; // set by card builders that support charts
+    const _chartOptions = [
+      { key:'list', label:'≡ List' },
+      { key:'pie',  label:'◉ Chart' },
+    ];
 
-    // ── Right-edge drag-to-resize handle ──────────────────────────────────────
+    const settingsBtn = document.createElement('span');
+    settingsBtn.style.cssText = 'cursor:pointer;font-size:13px;margin-left:auto;flex-shrink:0;padding:0 4px;border:none;color:rgba(255,255,255,0.4);background:transparent;transition:color .15s;user-select:none;line-height:1;letter-spacing:1px';
+    settingsBtn.textContent = '···';
+    settingsBtn.title = 'Card options';
+    settingsBtn.onmouseover = () => settingsBtn.style.color = 'var(--cb-yellow)';
+    settingsBtn.onmouseout  = () => settingsBtn.style.color = 'rgba(255,255,255,0.4)';
+    const _refreshSettingsBtn = () => {
+      const s = _ovCardSizes[key] || 'normal';
+      settingsBtn.style.color = s !== 'normal' ? 'var(--cb-yellow)' : 'rgba(255,255,255,0.4)';
+    };
+    _refreshSettingsBtn();
+
+    // Dropdown panel — fixed position to avoid overflow clipping
+    const ddWrap = document.createElement('div'); ddWrap.style.cssText = 'margin-left:auto;flex-shrink:0';
+    const dd = document.createElement('div');
+    dd.className = 'ov-card-dd-portal';
+    dd.style.cssText = 'display:none;position:fixed;background:var(--modal-bg);border:1px solid var(--cb-yellow);border-radius:4px;box-shadow:0 4px 14px rgba(0,0,0,0.65);z-index:9990;min-width:76px;padding:2px 0;font-size:10px;user-select:none';
+    document.body.appendChild(dd);
+
+    const sizeHdr = document.createElement('div');
+    sizeHdr.style.cssText = 'padding:2px 8px 1px;font-size:7px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--cb-os3);pointer-events:none';
+    sizeHdr.textContent = 'Size';
+    dd.appendChild(sizeHdr);
+
+    const _buildDdItems = () => {
+      dd.querySelectorAll('.ov-dd-item').forEach(el => el.remove());
+      const curSize = _ovCardSizes[key] || 'normal';
+      _userSizes.forEach(({ key: sKey, label, icon }) => {
+        const item = document.createElement('div'); item.className = 'ov-dd-item';
+        const active = curSize === sKey;
+        item.style.cssText = `display:flex;align-items:center;gap:5px;padding:2px 8px;cursor:pointer;color:${active ? 'var(--cb-yellow)' : 'var(--cb-text)'};background:${active ? 'rgba(255,215,0,0.1)' : 'transparent'};white-space:nowrap;transition:background .1s`;
+        item.onmouseover = () => { if (!active) item.style.background = 'rgba(255,215,0,0.12)'; };
+        item.onmouseout  = () => { if (!active) item.style.background = 'transparent'; };
+        const dot = document.createElement('span'); dot.style.cssText = `font-size:9px;width:10px;flex-shrink:0;color:${active ? 'var(--cb-yellow)' : 'var(--cb-os3)'}`;
+        dot.textContent = active ? '●' : '○';
+        const lbl = document.createElement('span'); lbl.textContent = label;
+        item.appendChild(dot); item.appendChild(lbl);
+        item.onclick = e => {
+          e.stopPropagation();
+          _ovCardSizes[key] = sKey;
+          card.classList.remove('ov-size-compact','ov-size-normal','ov-size-wide','ov-size-full');
+          card.classList.add('ov-size-' + sKey);
+          _refreshSettingsBtn();
+          _buildDdItems();
+        };
+        dd.appendChild(item);
+      });
+
+      // Chart type section if applicable
+      dd.querySelectorAll('.ov-dd-chart,.ov-dd-chart-hdr').forEach(el => el.remove());
+      if (chartKey) {
+        const sep = document.createElement('div'); sep.className = 'ov-dd-chart-hdr';
+        sep.style.cssText = 'border:none;border-top:1px solid var(--cb-os1);margin:3px 0';
+        dd.appendChild(sep);
+        const chartHdr = document.createElement('div'); chartHdr.className = 'ov-dd-chart-hdr';
+        chartHdr.style.cssText = 'padding:2px 8px 1px;font-size:7px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--cb-os3);pointer-events:none';
+        chartHdr.textContent = 'View as';
+        dd.appendChild(chartHdr);
+        const curChart = _ovChartModes[chartKey] || 'list';
+        _chartOptions.forEach(({ key: cKey, label }) => {
+          const cActive = curChart === cKey;
+          const item = document.createElement('div'); item.className = 'ov-dd-chart';
+          item.style.cssText = `display:flex;align-items:center;gap:5px;padding:2px 8px;cursor:pointer;color:${cActive ? 'var(--cb-yellow)' : 'var(--cb-text)'};background:${cActive ? 'rgba(255,215,0,0.1)' : 'transparent'};white-space:nowrap;transition:background .1s`;
+          item.onmouseover = () => { if (!cActive) item.style.background = 'rgba(255,215,0,0.12)'; };
+          item.onmouseout  = () => { if (!cActive) item.style.background = 'transparent'; };
+          const dot = document.createElement('span'); dot.style.cssText = `font-size:9px;width:10px;flex-shrink:0;color:${cActive ? 'var(--cb-yellow)' : 'var(--cb-os3)'}`;
+          dot.textContent = cActive ? '●' : '○';
+          const lbl = document.createElement('span'); lbl.textContent = label;
+          item.appendChild(dot); item.appendChild(lbl);
+          item.onclick = e => {
+            e.stopPropagation();
+            _ovChartModes[chartKey] = cKey;
+            _buildDdItems();
+            // Fire event so card areas re-render without full overview rebuild
+            card.dispatchEvent(new CustomEvent('ov-chart-change'));
+          };
+          dd.appendChild(item);
+        });
+      }
+    };
+    _buildDdItems();
+
+    settingsBtn.onclick = e => {
+      e.stopPropagation();
+      const open = dd.style.display !== 'none';
+      if (open) { dd.style.display = 'none'; return; }
+      _buildDdItems();
+      dd.style.display = 'block';
+      // Position relative to button, flip if near right/bottom edge
+      const r = settingsBtn.getBoundingClientRect();
+      dd.style.left = 'auto'; dd.style.right = 'auto';
+      dd.style.top = 'auto'; dd.style.bottom = 'auto';
+      const spaceRight = window.innerWidth - r.right;
+      const spaceBelow = window.innerHeight - r.bottom;
+      const ddW = dd.offsetWidth || 80; const ddH = dd.offsetHeight || 120;
+      if (spaceRight >= ddW) dd.style.left = r.right - ddW + 'px';
+      else dd.style.left = Math.max(4, r.left - ddW) + 'px';
+      if (spaceBelow >= ddH) dd.style.top = (r.bottom + 3) + 'px';
+      else dd.style.bottom = (window.innerHeight - r.top + 3) + 'px';
+    };
+    document.addEventListener('click', () => { dd.style.display = 'none'; });
+    dd.onclick = e => e.stopPropagation();
+
+    ddWrap.appendChild(settingsBtn);
+    title.appendChild(ddWrap);
+
+    // ── Resize handles ────────────────────────────────────────────────────────
     card.style.position = 'relative';
-    const rHandle = document.createElement('div'); rHandle.className = 'ov-card-resize-edge';
-    rHandle.title = 'Drag to resize';
-    rHandle.style.cssText = 'position:absolute;right:0;top:0;bottom:0;width:8px;cursor:ew-resize;z-index:10;display:flex;align-items:center;justify-content:center';
+
+    const _makeTip = () => {
+      const t = document.createElement('div');
+      t.style.cssText = 'position:fixed;background:var(--cb-dark);color:#2dd4bf;font-size:11px;font-weight:700;padding:3px 10px;border-radius:4px;border:1px solid rgba(45,212,191,0.5);pointer-events:none;z-index:9999;white-space:nowrap';
+      document.body.appendChild(t); return t;
+    };
+
+    // ── Right edge — width ────────────────────────────────────────────────────
+    const rHandle = document.createElement('div');
+    rHandle.style.cssText = 'position:absolute;right:0;top:20px;bottom:20px;width:6px;cursor:ew-resize;z-index:10;display:flex;align-items:center;justify-content:center';
     const rGrip = document.createElement('div');
-    rGrip.style.cssText = 'width:3px;height:32px;border-radius:2px;background:var(--cb-os1);transition:background .15s';
+    rGrip.style.cssText = 'width:3px;height:36px;border-radius:2px;background:rgba(120,143,141,0.25);transition:background .15s;pointer-events:none';
     rHandle.appendChild(rGrip);
-    rHandle.onmouseover = () => rGrip.style.background = 'var(--cb-yellow)';
-    rHandle.onmouseout  = () => rGrip.style.background = 'var(--cb-os1)';
+    rHandle.onmouseover = () => rGrip.style.background = 'rgba(45,212,191,0.7)';
+    rHandle.onmouseout  = () => rGrip.style.background = 'rgba(120,143,141,0.25)';
 
     rHandle.onmousedown = e => {
       e.preventDefault(); e.stopPropagation();
-      const grid = card.closest('.ov-grid');
-      const gridW = grid ? grid.offsetWidth : window.innerWidth;
+      const g = grid || card.closest('.ov-grid');
+      const gridW = g ? g.offsetWidth : window.innerWidth;
       const startX = e.clientX;
-      const startW = card.offsetWidth;
-      let previewSize = _ovCardSizes[key] || 'normal';
-      rGrip.style.background = 'var(--cb-yellow)';
-
-      // Size tooltip
-      const tip = document.createElement('div');
-      tip.style.cssText = 'position:fixed;background:var(--cb-dark);color:var(--cb-yellow-text);font-size:11px;font-weight:700;padding:3px 8px;border-radius:4px;border:1px solid var(--cb-yellow);pointer-events:none;z-index:9999;white-space:nowrap';
-      document.body.appendChild(tip);
+      const startW = card.getBoundingClientRect().width;
+      // Midpoint snap zones computed once from grid width at drag start
+      const W = { compact: gridW*0.25, normal: gridW*0.33, wide: gridW*0.50, full: gridW };
+      const snapW = px => px < (W.compact+W.normal)/2 ? 'compact'
+                        : px < (W.normal+W.wide)/2    ? 'normal'
+                        : px < (W.wide+W.full)/2      ? 'wide' : 'full';
+      let curSize = _ovCardSizes[key] || 'normal';
+      rGrip.style.background = 'rgba(45,212,191,0.9)';
+      const tip = _makeTip();
 
       const onMove = ev => {
-        const delta = ev.clientX - startX;
-        const newW  = Math.max(100, startW + delta);
-        const pct   = newW / gridW * 100;
-        previewSize = pct < 29 ? 'compact' : pct < 42 ? 'normal' : pct < 70 ? 'wide' : 'full';
-        card.classList.remove('ov-size-compact','ov-size-normal','ov-size-wide','ov-size-full');
-        card.classList.add('ov-size-' + previewSize);
-        tip.textContent = _sizeLabels[previewSize];
-        tip.style.left = (ev.clientX + 12) + 'px';
-        tip.style.top  = (ev.clientY - 16) + 'px';
+        const newPx = Math.max(120, startW + ev.clientX - startX);
+        const snap  = snapW(newPx);
+        if (snap !== curSize) {
+          curSize = snap;
+          card.classList.remove('ov-size-compact','ov-size-normal','ov-size-wide','ov-size-full');
+          card.classList.add('ov-size-' + curSize);
+        }
+        tip.textContent = '↔ ' + _sizeLabels[curSize];
+        tip.style.left = (ev.clientX + 14) + 'px';
+        tip.style.top  = (ev.clientY - 14) + 'px';
       };
-
-      const onUp = () => {
-        _ovCardSizes[key] = previewSize;
+      const rUp = () => {
+        _ovCardSizes[key] = curSize;
         _updateResizeBtn();
-        rGrip.style.background = 'var(--cb-os1)';
+        rGrip.style.background = 'rgba(120,143,141,0.25)';
         tip.remove();
         document.removeEventListener('mousemove', onMove);
-        document.removeEventListener('mouseup', onUp);
+        document.removeEventListener('mouseup', rUp);
+        window.removeEventListener('blur', rUp);
       };
-
+      window.addEventListener('blur', rUp, { once: true });
       document.addEventListener('mousemove', onMove);
-      document.addEventListener('mouseup', onUp);
+      document.addEventListener('mouseup', rUp);
     };
-
     card.appendChild(rHandle);
+
+    // ── Bottom edge — height ──────────────────────────────────────────────────
+    const bHandle = document.createElement('div');
+    bHandle.style.cssText = 'position:absolute;bottom:0;left:24px;right:24px;height:7px;cursor:ns-resize;z-index:10;display:flex;align-items:center;justify-content:center';
+    const bGrip = document.createElement('div');
+    bGrip.style.cssText = 'height:3px;width:40px;border-radius:2px;background:rgba(120,143,141,0.25);transition:background .15s;pointer-events:none';
+    bHandle.appendChild(bGrip);
+    bHandle.onmouseover = () => bGrip.style.background = 'rgba(45,212,191,0.7)';
+    bHandle.onmouseout  = () => bGrip.style.background = 'rgba(120,143,141,0.25)';
+
+    bHandle.onmousedown = e => {
+      e.preventDefault(); e.stopPropagation();
+      const startY = e.clientY;
+      const startH = card.getBoundingClientRect().height;
+      let curH = startH;
+      bGrip.style.background = 'rgba(45,212,191,0.9)';
+      const tip = _makeTip();
+
+      const onMove = ev => {
+        curH = Math.max(100, startH + ev.clientY - startY);
+        card.style.minHeight = curH + 'px';
+        card.querySelectorAll('.ov-card-list, .ov-ctx-list, .ov-chart-area, .ov-activity-chart').forEach(l => l.style.maxHeight = Math.max(60, curH - 58) + 'px');
+        tip.textContent = '↕ ' + Math.round(curH) + 'px';
+        tip.style.left = (ev.clientX + 14) + 'px';
+        tip.style.top  = (ev.clientY + 8) + 'px';
+      };
+      const bUp = () => {
+        // Only discard if user barely moved (accidental click) — compare to startH not scrollHeight
+        if (Math.abs(curH - startH) < 16) {
+          card.style.minHeight = '';
+          card.querySelectorAll('.ov-card-list, .ov-ctx-list, .ov-chart-area, .ov-activity-chart').forEach(l => l.style.maxHeight = '');
+          delete _ovCardHeights[key];
+        } else {
+          _ovCardHeights[key] = Math.round(curH);
+        }
+        bGrip.style.background = 'rgba(120,143,141,0.25)';
+        tip.remove();
+        document.removeEventListener('mousemove', onMove);
+        document.removeEventListener('mouseup', bUp);
+        window.removeEventListener('blur', bUp);
+      };
+      window.addEventListener('blur', bUp, { once: true });
+      document.addEventListener('mousemove', onMove);
+      document.addEventListener('mouseup', bUp);
+    };
+    card.appendChild(bHandle);
   }
 
   function _addProfileOption(dropdown, id, type, mitreResults, profileBtn) {
@@ -12956,6 +13170,7 @@ const TECHNIQUE_PROFILES = {
 
   function buildHostsAccountsCard(scope, s) {
     const card = document.createElement('div'); card.className = 'ov-card';
+    card.dataset.chartKey = 'hosts';
     const title = document.createElement('div'); title.className = 'ov-card-title';
     title.textContent = 'Hosts & Accounts';
     card.appendChild(title);
@@ -12966,40 +13181,26 @@ const TECHNIQUE_PROFILES = {
       card.appendChild(hdr);
       // Chart toggle for devices
       const devWrap = document.createElement('div');
-      let devMode = 'list';
-      const devArea = document.createElement('div');
+      const devArea = document.createElement('div'); devArea.className = 'ov-chart-area';
       const renderDev = () => {
         devArea.innerHTML = '';
-        if (devMode === 'pie') devArea.appendChild(_buildDonutChart(scope.devicesSorted.slice(0,10), s.deviceCol));
+        if (_ovChartModes['hosts'] === 'pie') devArea.appendChild(_buildDonutChart(scope.devicesSorted.slice(0,10), s.deviceCol));
         else scope.devicesSorted.forEach(([d,c]) => devArea.appendChild(ovRow(s.deviceCol, d, d, c.toLocaleString())));
       };
-      const devBtn = document.createElement('button');
-      devBtn.style.cssText = 'font-size:9px;padding:1px 6px;background:transparent;border:1px solid var(--cb-os1);border-radius:3px;color:var(--cb-muted);cursor:pointer;margin:4px 0 2px';
-      const refreshDev = () => devBtn.textContent = devMode === 'list' ? '◉ Chart' : '≡ List';
-      refreshDev();
-      devBtn.onclick = e => { e.stopPropagation(); devMode = devMode === 'list' ? 'pie' : 'list'; refreshDev(); renderDev(); };
-      renderDev();
-      card.appendChild(devBtn); card.appendChild(devArea);
+      renderDev(); card.addEventListener('ov-chart-change', renderDev); card.appendChild(devArea);
     }
 
     if (scope.usersSorted.length) {
       const hdr = document.createElement('div'); hdr.className = 'ov-section-hdr';
       hdr.textContent = `Accounts (${scope.usersSorted.length.toLocaleString()} unique)`;
       card.appendChild(hdr);
-      let usrMode = 'list';
-      const usrArea = document.createElement('div');
+      const usrArea = document.createElement('div'); usrArea.className = 'ov-chart-area';
       const renderUsr = () => {
         usrArea.innerHTML = '';
-        if (usrMode === 'pie') usrArea.appendChild(_buildDonutChart(scope.usersSorted.slice(0,10), s.userCol));
+        if (_ovChartModes['hosts'] === 'pie') usrArea.appendChild(_buildDonutChart(scope.usersSorted.slice(0,10), s.userCol));
         else scope.usersSorted.forEach(([u,c]) => usrArea.appendChild(ovRow(s.userCol, u, u, c.toLocaleString())));
       };
-      const usrBtn = document.createElement('button');
-      usrBtn.style.cssText = 'font-size:9px;padding:1px 6px;background:transparent;border:1px solid var(--cb-os1);border-radius:3px;color:var(--cb-muted);cursor:pointer;margin:4px 0 2px';
-      const refreshUsr = () => usrBtn.textContent = usrMode === 'list' ? '◉ Chart' : '≡ List';
-      refreshUsr();
-      usrBtn.onclick = e => { e.stopPropagation(); usrMode = usrMode === 'list' ? 'pie' : 'list'; refreshUsr(); renderUsr(); };
-      renderUsr();
-      card.appendChild(usrBtn); card.appendChild(usrArea);
+      renderUsr(); card.addEventListener('ov-chart-change', renderUsr); card.appendChild(usrArea);
     }
 
     return card;
@@ -13020,10 +13221,16 @@ const TECHNIQUE_PROFILES = {
   // ── Card: processes ───────────────────────────────────────────────────────────
   function buildProcessCard(process, s) {
     const card = document.createElement('div'); card.className = 'ov-card';
+    card.dataset.chartKey = 'process';
     const title = document.createElement('div'); title.className = 'ov-card-title'; title.textContent = 'Processes';
     const sub = document.createElement('span'); sub.className = 'ov-card-sub'; sub.textContent = process.uniqueTotal.toLocaleString()+' unique';
     title.appendChild(sub); card.appendChild(title);
-    _addChartToggle(card, title, process.sorted, s.fileCol);
+    const area = document.createElement('div'); area.className = 'ov-chart-area';
+    const render = () => { area.innerHTML = '';
+      if (_ovChartModes['process'] === 'pie') area.appendChild(_buildDonutChart(process.sorted.slice(0,12), s.fileCol));
+      else process.sorted.forEach(([n,c]) => area.appendChild(ovRow(s.fileCol, n, n, c.toLocaleString())));
+    };
+    render(); card.addEventListener('ov-chart-change', render); card.appendChild(area);
     return card;
   }
 
@@ -13076,6 +13283,7 @@ const TECHNIQUE_PROFILES = {
   // ── Card: network ─────────────────────────────────────────────────────────────
   function buildNetworkCard(network, s) {
     const card = document.createElement('div'); card.className = 'ov-card';
+    card.dataset.chartKey = 'net-ip';
     const title = document.createElement('div'); title.className = 'ov-card-title'; title.textContent = 'Network';
     card.appendChild(title);
 
@@ -13083,33 +13291,29 @@ const TECHNIQUE_PROFILES = {
       const hdr = document.createElement('div'); hdr.className = 'ov-section-hdr';
       hdr.textContent = `External IPs (${network.ipCount.toLocaleString()} unique)`;
       card.appendChild(hdr);
-      // Chart toggle for IPs
-      let ipMode = 'list';
-      const ipArea = document.createElement('div');
+      // Bug fix 4: persist chart mode across re-renders
+      const ipArea = document.createElement('div'); ipArea.className = 'ov-chart-area';
       const renderIp = () => {
         ipArea.innerHTML = '';
-        if (ipMode === 'pie') ipArea.appendChild(_buildDonutChart(network.ipSorted.slice(0,10), s.remoteIpCol));
-        else network.ipSorted.forEach(([ip,c]) => ipArea.appendChild(ovRow(s.remoteIpCol, ip, ip, c.toLocaleString())));
+        if (_ovChartModes['net-ip'] === 'pie') {
+          ipArea.appendChild(_buildDonutChart(network.ipSorted.slice(0,10), s.remoteIpCol));
+        } else {
+          network.ipSorted.forEach(([ip,c]) => ipArea.appendChild(ovRow(s.remoteIpCol, ip, ip, c.toLocaleString())));
+          // Bug fix 2: beaconing inside ipArea so it hides when chart mode is active
+          if (network.beacons && network.beacons.length) {
+            const bhdr = document.createElement('div'); bhdr.className = 'ov-section-hdr';
+            bhdr.innerHTML = '⚠ Potential Beaconing'; bhdr.style.color = '#f0a500';
+            ipArea.appendChild(bhdr);
+            network.beacons.slice(0, 3).forEach(b => {
+              const row = ovRow(s.remoteIpCol, b.ip, b.ip, '~'+b.avgInterval+' interval');
+              row.querySelector('.ov-list-count').style.color = '#f0a500';
+              row.title = `${b.count} connections · avg interval ${b.avgInterval} · regularity ${b.score}%`;
+              ipArea.appendChild(row);
+            });
+          }
+        }
       };
-      const ipBtn = document.createElement('button');
-      ipBtn.style.cssText = 'font-size:9px;padding:1px 6px;background:transparent;border:1px solid var(--cb-os1);border-radius:3px;color:var(--cb-muted);cursor:pointer;margin:4px 0 2px';
-      const refreshIp = () => ipBtn.textContent = ipMode === 'list' ? '◉ Chart' : '≡ List';
-      refreshIp();
-      ipBtn.onclick = e => { e.stopPropagation(); ipMode = ipMode === 'list' ? 'pie' : 'list'; refreshIp(); renderIp(); };
-      renderIp();
-      card.appendChild(ipBtn); card.appendChild(ipArea);
-
-      if (network.beacons && network.beacons.length) {
-        const bhdr = document.createElement('div'); bhdr.className = 'ov-section-hdr';
-        bhdr.innerHTML = '⚠ Potential Beaconing'; bhdr.style.color = '#f0a500';
-        card.appendChild(bhdr);
-        network.beacons.slice(0, 3).forEach(b => {
-          const row = ovRow(s.remoteIpCol, b.ip, b.ip, '~'+b.avgInterval+' interval');
-          row.querySelector('.ov-list-count').style.color = '#f0a500';
-          row.title = `${b.count} connections · avg interval ${b.avgInterval} · regularity ${b.score}%`;
-          card.appendChild(row);
-        });
-      }
+      renderIp(); card.addEventListener('ov-chart-change', renderIp); card.appendChild(ipArea);
     }
 
     if (network.urlSorted && network.urlSorted.length) {
@@ -13168,38 +13372,24 @@ const TECHNIQUE_PROFILES = {
   }
 
   // ── Card: Activity with chart toggle ─────────────────────────────────────────
-  var _activityChartMode = 'bars'; // 'bars' | 'donut'
+  // _activityChartMode is now stored in _ovChartModes['activity']
 
   function buildActivityCard(activity, s) {
     const card = document.createElement('div'); card.className = 'ov-card ov-card-wide';
+    card.dataset.chartKey = 'activity'; // enables View section in settings dropdown
     const title = document.createElement('div'); title.className = 'ov-card-title';
     title.textContent = 'Activity';
-
-    // Chart toggle button
-    const toggleBtn = document.createElement('button');
-    toggleBtn.style.cssText = 'margin-left:auto;font-size:9px;padding:1px 7px;background:transparent;border:1px solid var(--cb-os1);border-radius:3px;color:var(--cb-muted);cursor:pointer;flex-shrink:0;transition:all .15s';
-    const refreshToggle = () => {
-      toggleBtn.textContent = _activityChartMode === 'bars' ? '◉ Donut' : '≡ List';
-      toggleBtn.title = _activityChartMode === 'bars' ? 'Switch to donut chart' : 'Switch to list view';
-    };
-    refreshToggle();
-    toggleBtn.onclick = e => {
-      e.stopPropagation();
-      _activityChartMode = _activityChartMode === 'bars' ? 'donut' : 'bars';
-      refreshToggle();
-      // Re-render just the chart area
-      const chartWrap = card.querySelector('.ov-activity-chart');
-      if (chartWrap) {
-        chartWrap.innerHTML = '';
-        if (_activityChartMode === 'donut') chartWrap.appendChild(_buildDonutChart(activity.sorted));
-        else chartWrap.appendChild(_buildActivityBars(activity, s));
-      }
-    };
-    title.appendChild(toggleBtn);
     card.appendChild(title);
 
     const chartWrap = document.createElement('div'); chartWrap.className = 'ov-activity-chart';
-    chartWrap.appendChild(_buildActivityBars(activity, s));
+    const _renderActivity = () => {
+      chartWrap.innerHTML = '';
+      chartWrap.appendChild((_ovChartModes['activity'] || 'list') === 'pie'
+        ? _buildDonutChart(activity.sorted) : _buildActivityBars(activity, s));
+    };
+    _renderActivity();
+    // Listen for chart mode changes triggered by dropdown
+    card.addEventListener('ov-chart-change', _renderActivity);
     card.appendChild(chartWrap);
     return card;
   }
@@ -14668,11 +14858,13 @@ const TECHNIQUE_PROFILES = {
   // ── Filter from overview — stays in overview, cards update live ──────────────
   function filterFromOverview(col, val, mode) {
     const m = mode || 'contains';
-    // Don't add a duplicate — if an identical filter already exists, skip
-    const already = (filterRows || []).some(r => r.col === col && r.value === val && r.mode === m);
+    // If col is undefined (column not mapped for this data source) fall back to
+    // all-columns search so the filter still does something meaningful
+    const effectiveCol = col || '';
+    const already = (filterRows || []).some(r => r.col === effectiveCol && r.value === val && r.mode === m);
     if (already) return;
     const id = ++filterRowCounter;
-    filterRows.push({ id, col, mode: m, value: val, connector: 'AND' });
+    filterRows.push({ id, col: effectiveCol, mode: m, value: val, connector: 'AND' });
     renderFilterRows();
     document.getElementById('filterBar').classList.remove('hidden');
     applyFilter();

@@ -66,8 +66,8 @@
       --modal-input-bg:  rgba(0,0,0,0.3);
       --modal-input-bdr: #304D4A;
       --modal-text:      #FFFFFF;
-      --modal-muted:     #778F8D;
-      --modal-dim:       #537173;
+      --modal-muted:     #9AAEAC;
+      --modal-dim:       #7A9D9B;
       --modal-code-bg:   rgba(0,0,0,0.3);
       --modal-canvas-bg: rgba(0,0,0,0.12);
     }
@@ -95,8 +95,8 @@
     --modal-input-bg:  rgba(0,0,0,0.3);
     --modal-input-bdr: #304D4A;
     --modal-text:      #FFFFFF;
-    --modal-muted:     #778F8D;
-    --modal-dim:       #537173;
+    --modal-muted:     #9AAEAC;
+    --modal-dim:       #7A9D9B;
     --modal-code-bg:   rgba(0,0,0,0.3);
     --modal-canvas-bg: rgba(0,0,0,0.12);
   }
@@ -1957,6 +1957,33 @@
     padding: 0;
   }
 
+  /* Chart toggle buttons — visible across all cards */
+  .ov-chart-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 10px;
+    font-weight: 600;
+    padding: 3px 9px;
+    margin: 5px 0 3px;
+    background: rgba(45,212,191,0.08);
+    border: 1px solid rgba(45,212,191,0.4);
+    border-radius: 4px;
+    color: #2dd4bf;
+    cursor: pointer;
+    transition: background .15s, border-color .15s;
+    white-space: nowrap;
+  }
+  .ov-chart-btn:hover {
+    background: rgba(45,212,191,0.16);
+    border-color: rgba(45,212,191,0.7);
+  }
+  .ov-chart-btn.active {
+    background: rgba(45,212,191,0.15);
+    border-color: #2dd4bf;
+    color: #2dd4bf;
+  }
+
   /* Card sizes — cycle with the resize button */
   .ov-grid .ov-card.ov-size-compact { flex: 0 1 calc(25% - 9px);  min-width: 180px; }
   .ov-grid .ov-card.ov-size-normal  { flex: 1 1 calc(33% - 8px);  min-width: 240px; }
@@ -1973,18 +2000,7 @@
   }
 
   /* Drag state */
-  .ov-grid .ov-card[draggable="true"] { cursor: default; }
-  .ov-grid .ov-card[draggable="true"]:hover { box-shadow: 0 0 0 1px rgba(255,215,0,0.2); }
-  .ov-grid .ov-card.ov-dragging { opacity: 0.4; }
-  .ov-drop-indicator {
-    width: 3px;
-    background: var(--cb-yellow);
-    border-radius: 2px;
-    align-self: stretch;
-    flex-shrink: 0;
-    min-height: 40px;
-    pointer-events: none;
-  }
+  .ov-grid .ov-card:hover { box-shadow: 0 0 0 1px rgba(255,215,0,0.15); }
 
   /* ── Overview Dashboard ── */
   #overviewPanel {
@@ -2317,7 +2333,7 @@
   /* Title bar strip — extends to card edges via negative side margins only */
   .ov-card-title {
     background: var(--cb-dark);
-    color: var(--cb-os5);
+    color: var(--cb-yellow);
     font-size: 13px;
     font-weight: 700;
     letter-spacing: .04em;
@@ -2336,8 +2352,8 @@
     font-weight: 500;
     letter-spacing: 0;
     text-transform: none;
-    color: var(--cb-os3);
-    margin-left: auto;
+    color: rgba(255,255,255,0.65);
+    margin-left: 8px;
   }
 
   .ov-kv {
