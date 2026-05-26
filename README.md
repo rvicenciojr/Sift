@@ -74,7 +74,7 @@ Auto-detected by: `ActionType`, `InitiatingProcessFileName`, `ProcessCommandLine
 
 Auto-detected by: `metadata.event_type`, `principal.hostname`, `security_result.severity`
 
-**Features unlocked:** Severity card · Severity auto-highlights · YARA-L generation · Chronicle UDM query building
+**Features unlocked:** Process Tree · Network Map · Severity card · Severity auto-highlights · All TTP context cards · Registry card · Hash card with VirusTotal links · YARA-L generation · Chronicle UDM query building
 
 | Feature | Chronicle UDM fields |
 |---------|---------------------|
@@ -82,11 +82,19 @@ Auto-detected by: `metadata.event_type`, `principal.hostname`, `security_result.
 | Device | `principal.hostname` / `udm.principal.hostname` |
 | User | `principal.user.userid` / `udm.principal.user.userid` |
 | Action type | `metadata.event_type` / `udm.metadata.event_type` |
-| Process / cmdline | `principal.process.command_line` |
+| Process name | `principal.process.file.full_path` |
+| Command line | `principal.process.command_line` |
+| Parent process | `principal.process.parent_process.file.full_path` |
+| Parent cmdline | `principal.process.parent_process.command_line` |
 | Remote IP | `target.ip` / `udm.target.ip` |
 | Remote port | `target.port` / `udm.target.port` |
+| Remote URL / hostname | `target.hostname` |
+| Registry key | `target.registry.registry_key` |
+| Registry value | `target.registry.registry_value_name` |
+| Registry data | `target.registry.registry_value_data` |
 | SHA256 | `principal.process.file.sha256` |
 | Severity | `security_result.severity` / `udm.security_result.severity` |
+| Target user | `target.user.userid` |
 
 ---
 
@@ -283,23 +291,6 @@ When a custom profile is active, the overview shows **only** the cards you selec
 
 The **＋ Field** button in the overview header lets you pin any column as a frequency card without building a full custom profile. Cards show top 25 values with click-to-filter. Dismiss with × to remove.
 
-### Drag to Reorder & Resize Cards
-
-Every overview card has two controls in its title bar:
-
-**⠿ Drag handle** — grab and drag any card to a new position. A yellow indicator bar shows the drop target. The new order is preserved for the session and survives profile switches.
-
-**⊡ Resize button** — click to cycle through four widths:
-
-| Icon | Size | Width |
-|------|------|-------|
-| ⊡ | Normal | ~33% — default |
-| ⊟ | Wide | ~50% — inner lists display horizontally |
-| ⊠ | Full | 100% — spans the entire panel |
-| ⊞ | Compact | ~25% — small summary cards |
-
-Cards wrap automatically to the next row as you resize them.
-
 ### Windows Security specific cards
 
 These appear automatically when Security event logs are loaded:
@@ -355,6 +346,17 @@ All tools respect active filters — scoped to your current filtered dataset.
 ![Process Tree](screenshots/process-tree.png)
 
 Hierarchical parent/child process view. Click any node for full detail: cmdline, hashes, network events, registry changes. Filter by host or search by process/cmdline/IP.
+
+**Chronicle UDM action type categories:**
+
+| Category | Color | UDM event types |
+|----------|-------|----------------|
+| Process | 🔴 Red-orange | `PROCESS_LAUNCH` · `PROCESS_TERMINATION` |
+| Network | 🔵 Blue | `NETWORK_CONNECTION` · `DNS_QUERY` · `DNS_LOOKUP` |
+| File | 🟣 Purple | `FILE_CREATION` · `FILE_MODIFICATION` · `FILE_DELETION` |
+| Registry | 🟠 Amber | `REGISTRY_VALUE_SET` · `REGISTRY_VALUE_DELETION` |
+| Logon | 🩷 Pink | `USER_LOGIN` · `USER_LOGOUT` |
+| Other | 🟢 Green | All other event types |
 
 **Windows Security action type categories:**
 
@@ -418,7 +420,7 @@ Floating draggable panel. Right-click any value → "Add to Query Builder" to ac
 
 ![Table view](screenshots/table.png)
 
-The main data grid — sortable columns, row-level highlights, filter controls in the bar above. The bottom bar always shows row count and Export regardless of dataset size. Pagination navigation only appears when data spans multiple pages.
+The main data grid — sortable columns, row-level highlights, filter controls in the bar above. The pagination bar (row count, Export, navigation) is only visible in table view — it hides automatically when the Overview is open and returns when you leave it. Navigation controls only appear when data spans multiple pages.
 
 ### Cell Selection & Copy
 
@@ -544,13 +546,6 @@ python build.py
 # Build a single variant by folder name
 python build.py windows
 python build.py chronicle-defender
-
-# Build a custom multi-source package on the fly
-python build.py --custom chronicle defender windows
-# → dist/sift-custom-chronicle-defender-windows.html
-
-# List all available modules
-python build.py --list
 ```
 
 Each built file in `dist/` is fully self-contained — all JS and CSS is inlined. Send just the HTML file, nothing else is needed.
@@ -616,16 +611,6 @@ Example — the generic variant:
 ```
 
 2. Run `python build.py my-variant`
-
-### Building a custom multi-source package
-
-`build.py --custom <module>...` assembles a one-off HTML on demand without creating a permanent variant folder:
-
-```bash
-python build.py --custom elastic splunk
-python build.py --custom chronicle defender windows
-python build.py --list   # show all available modules
-```
 
 ### Adding a new data source
 

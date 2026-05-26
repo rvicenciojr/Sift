@@ -344,7 +344,7 @@
                     'principal.process.parent_process.file.full_path','principal.process.parent_process.file.basename',
                     'udm.principal.process.parent_process.file.full_path','udm.principal.process.parent_process.file.basename'],
     initPid:       ['Initiating Process Id','InitiatingProcessId',
-                    'ProcessId','principal.process.parent_process.pid','udm.principal.process.parent_process.pid'],
+                    'principal.process.parent_process.pid','udm.principal.process.parent_process.pid'],
     initCmd:       ['Initiating Process Command Line','InitiatingProcessCommandLine',
                     'principal.process.parent_process.command_line','udm.principal.process.parent_process.command_line'],
     initPath:      ['Initiating Process Folder Path','InitiatingProcessFolderPath',
@@ -609,10 +609,6 @@
     // ActionType — present across all Device* tables; DeviceEvents is the broadest
     if (colAction)
       return 'DeviceEvents\n| where ActionType == "' + esc + '"';
-
-    // Logon type / failure reason — DeviceLogonEvents
-    if (colLogon)
-      return 'DeviceLogonEvents\n| where LogonType == "' + esc + '" or FailureReason has "' + esc + '"';
 
     // Protocol — DeviceNetworkEvents: Protocol (TCP, UDP, etc.)
     if (colProtocol)

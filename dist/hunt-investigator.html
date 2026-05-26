@@ -3146,12 +3146,12 @@ var SIFT_FEATURES = {"chronicle":true,"defender":true,"windows":false,"evtx":fal
     <input type="datetime-local" id="tsTo" oninput="applyFilter()">
     <button style="font-size:11px;padding:3px 9px" onclick="document.getElementById('tsFrom').value='';document.getElementById('tsTo').value='';applyFilter()">✕ Clear</button>
     <div style="display:flex;gap:3px;margin-left:4px" id="tlQuickPicks">
-      <button class="tl-qp" onclick="tlQuickPick(1)">1h</button>
-      <button class="tl-qp" onclick="tlQuickPick(6)">6h</button>
-      <button class="tl-qp" onclick="tlQuickPick(12)">12h</button>
-      <button class="tl-qp" onclick="tlQuickPick(24)">1d</button>
-      <button class="tl-qp" onclick="tlQuickPick(168)">1w</button>
-      <button class="tl-qp" onclick="tlQuickPick(720)">1mo</button>
+      <button class="tl-qp" onclick="tlQuickPick(1,event)">1h</button>
+      <button class="tl-qp" onclick="tlQuickPick(6,event)">6h</button>
+      <button class="tl-qp" onclick="tlQuickPick(12,event)">12h</button>
+      <button class="tl-qp" onclick="tlQuickPick(24,event)">1d</button>
+      <button class="tl-qp" onclick="tlQuickPick(168,event)">1w</button>
+      <button class="tl-qp" onclick="tlQuickPick(720,event)">1mo</button>
     </div>
     <span style="margin-left:auto;font-size:10px;color:var(--cb-text-inverse);opacity:0.45;white-space:nowrap">Drag to zoom · dbl-click reset</span>
   </div>
@@ -4308,7 +4308,7 @@ self.onmessage = function (e) {
                     'principal.process.parent_process.file.full_path','principal.process.parent_process.file.basename',
                     'udm.principal.process.parent_process.file.full_path','udm.principal.process.parent_process.file.basename'],
     initPid:       ['Initiating Process Id','InitiatingProcessId',
-                    'ProcessId','principal.process.parent_process.pid','udm.principal.process.parent_process.pid'],
+                    'principal.process.parent_process.pid','udm.principal.process.parent_process.pid'],
     initCmd:       ['Initiating Process Command Line','InitiatingProcessCommandLine',
                     'principal.process.parent_process.command_line','udm.principal.process.parent_process.command_line'],
     initPath:      ['Initiating Process Folder Path','InitiatingProcessFolderPath',
@@ -4573,10 +4573,6 @@ self.onmessage = function (e) {
     // ActionType — present across all Device* tables; DeviceEvents is the broadest
     if (colAction)
       return 'DeviceEvents\n| where ActionType == "' + esc + '"';
-
-    // Logon type / failure reason — DeviceLogonEvents
-    if (colLogon)
-      return 'DeviceLogonEvents\n| where LogonType == "' + esc + '" or FailureReason has "' + esc + '"';
 
     // Protocol — DeviceNetworkEvents: Protocol (TCP, UDP, etc.)
     if (colProtocol)
@@ -5319,7 +5315,7 @@ ${evtLine}    \$e.${udm} = "${v}"
             const colEl = document.getElementById(`fr-col-${row.id}`);
             if (colEl) row.col = colEl.value;
           });
-          outgoing.filterRows    = JSON.parse(JSON.stringify(filterRows || []));
+          outgoing.filterRows    = (filterRows || []).map(function(r) { return Object.assign({}, r); });
           outgoing.columnFilters = cloneColumnFilters(columnFilters || {});
           outgoing.tags          = [...tags];
         }
@@ -5364,9 +5360,17 @@ ${evtLine}    \$e.${udm} = "${v}"
     hiddenCols = new Set(tab.hiddenCols || []);
     sortCol = tab.sortCol;
     sortDir = tab.sortDir;
-    // Always restore filters (they persist by default)
-    filterRows = JSON.parse(JSON.stringify(tab.filterRows || []));
-    columnFilters = cloneColumnFilters(tab.columnFilters || {});
+    // In per-tab mode restore this tab's saved filters; in global mode keep current filters unchanged
+    if (!globalMode) {
+      filterRows    = (tab.filterRows || []).map(function(r) { return Object.assign({}, r); });
+      columnFilters = cloneColumnFilters(tab.columnFilters || {});
+    } else {
+      // TTP rows hold matchingSet references tied to a specific tab's allRows — strip them on
+      // tab switch so they don't silently return 0 results against a different tab's data
+      filterRows = filterRows.filter(function(r) { return r.mode !== 'ttp'; });
+    }
+    // Keep counter at least as high as the max id in restored rows to prevent duplicate ids
+    filterRowCounter = filterRows.reduce(function(m, r) { return Math.max(m, r.id || 0); }, filterRowCounter);
     currentPage = tab.currentPage;
     filteredSorted = tab.filteredSorted;
     visibleRows = tab.visibleRows;
@@ -5709,8 +5713,8 @@ ${evtLine}    \$e.${udm} = "${v}"
     const from = document.getElementById('tsFrom').value;
     const to   = document.getElementById('tsTo').value;
     if (!sel || !sel.value || (!from && !to)) return rows;
-    const fromMs = from ? new Date(from).getTime() : -Infinity;
-    const toMs   = to   ? new Date(to).getTime()   :  Infinity;
+    const fromMs = from ? new Date(from).getTime()         : -Infinity;
+    const toMs   = to   ? new Date(to).getTime() + 59999   :  Infinity;
     // Use pre-computed _ts only when the cached column matches the selected column
     const tab = activeTab();
     const useCached = tab && tab._tsPrecached === sel.value && rows.length && rows[0]._ts !== undefined;
@@ -6224,9 +6228,7 @@ ${evtLine}    \$e.${udm} = "${v}"
     if (!tab) return;
     tab.sortCol = sortCol;
     tab.sortDir = sortDir;
-    tab.filterRows = (filterRows || []).map(function(r) {
-      return { id: r.id, col: r.col, mode: r.mode, value: r.value, connector: r.connector };
-    });
+    tab.filterRows = (filterRows || []).map(function(r) { return Object.assign({}, r); });
     tab.columnFilters = cloneColumnFilters(columnFilters || {});
     tab.currentPage = currentPage;
     tab.filteredSorted = filteredSorted;
@@ -6483,8 +6485,8 @@ ${evtLine}    \$e.${udm} = "${v}"
     // Pagination bar
     const pgBar = document.getElementById('paginationBar');
     const tp = totalPages();
-    // Always show the bar when data is loaded — Export + row count are always useful
-    pgBar.classList.add('visible');
+    // Only show when in table view — overview hides it
+    if (!overviewVisible) pgBar.classList.add('visible');
     const pgTopRow = pgBar.querySelector('.pg-row-top');
     if (tp > 1) {
       if (pgTopRow) pgTopRow.style.display = '';
@@ -6805,7 +6807,8 @@ ${evtLine}    \$e.${udm} = "${v}"
       tabs.forEach(t => {
         if (!t.blank) {
           t.tags       = [...tags];
-          t.filterRows = JSON.parse(JSON.stringify(filterRows || []));
+          // TTP rows hold tab-specific row references — exclude them from the global push
+          t.filterRows = (filterRows || []).filter(function(r) { return r.mode !== 'ttp'; }).map(function(r) { return Object.assign({}, r); });
           t.columnFilters = cloneColumnFilters(columnFilters || {});
         }
       });
@@ -6899,7 +6902,7 @@ ${evtLine}    \$e.${udm} = "${v}"
     hlOnly = !hlOnly;
     const btn = document.getElementById('hlOnlyBtn');
     if (btn) {
-      btn.textContent = hlOnly ? '🎯 Show all' : '🎯 Show highlighted';
+      btn.textContent = hlOnly ? '🎯 Showing highlighted' : '🎯 Show highlighted';
       btn.classList.toggle('active', hlOnly);
     }
     applyFilter();
@@ -7104,7 +7107,7 @@ ${evtLine}    \$e.${udm} = "${v}"
   }
 
   // ── Timeline quick picks ──────────────────────────────────────────────────
-  function tlQuickPick(hours) {
+  function tlQuickPick(hours, e) {
     const colSel = document.getElementById('tsColSelect');
     const col    = colSel ? colSel.value : '';
     const useCol = col || (timestampCols[0] || '');
@@ -7128,7 +7131,7 @@ ${evtLine}    \$e.${udm} = "${v}"
     document.getElementById('tsTo').value   = fmt(maxMs);
 
     document.querySelectorAll('.tl-qp').forEach(function(b) { b.classList.remove('active'); });
-    if (event && event.target) event.target.classList.add('active');
+    if (e && e.target) e.target.classList.add('active');
 
     applyFilter();
   }
@@ -7353,11 +7356,17 @@ ${evtLine}    \$e.${udm} = "${v}"
     const nameInput = document.getElementById('presetNameInput');
     const name = (nameInput.value || '').trim();
     if (!name) { nameInput.focus(); return; }
-    if (!filterRows.some(r => r.value.trim())) { return; }
+    // TTP rows hold tab-specific row references — exclude them from presets
+    const saveable = filterRows.filter(function(r) { return r.mode !== 'ttp' && r.value.trim(); });
+    if (!saveable.length) {
+      const hasTtp = filterRows.some(function(r) { return r.mode === 'ttp'; });
+      nameInput.placeholder = hasTtp ? 'TTP filters cannot be saved as presets' : 'No active filters to save';
+      setTimeout(function() { nameInput.placeholder = 'Preset name…'; }, 2500);
+      return;
+    }
     const presets = loadPresets();
-    // Replace if name already exists
     const existing = presets.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
-    const entry = { name: name, rows: JSON.parse(JSON.stringify(filterRows)) };
+    const entry = { name: name, rows: JSON.parse(JSON.stringify(saveable)) };
     if (existing >= 0) presets[existing] = entry;
     else presets.push(entry);
     savePresetsToStorage(presets);
@@ -7810,7 +7819,7 @@ ${evtLine}    \$e.${udm} = "${v}"
       const bi = Math.floor((t - startT) / bucketMs);
       if (bi < 0 || bi >= buckets.length) return;
       buckets[bi].total++;
-      const rowText = Object.values(row).join(' ').toLowerCase();
+      const rowText = row._rt || Object.values(row).join(' ').toLowerCase();
       const hlCls = TL_PRIORITY.find(p => tags.find(tag => tag.colour === p && rowText.includes(tag.term.toLowerCase())));
       if (hlCls) buckets[bi].hl[hlCls] = (buckets[bi].hl[hlCls] || 0) + 1;
     });
@@ -7957,14 +7966,10 @@ ${evtLine}    \$e.${udm} = "${v}"
         const b1 = bs[lo], b2 = bs[hi];
         if (!b1 || !b2) return;
 
-        // Single click on empty bar = clear range
-        if (lo === hi && !b1.total) {
-          document.getElementById('tsFrom').value = '';
-          document.getElementById('tsTo').value   = '';
-        } else {
-          document.getElementById('tsFrom').value = toDatetimeLocal(new Date(b1.t));
-          document.getElementById('tsTo').value   = toDatetimeLocal(new Date(b2.t + canvas._bucketMs - 1));
-        }
+        // Single click on empty bar = do nothing (double-click clears range)
+        if (lo === hi && !b1.total) return;
+        document.getElementById('tsFrom').value = toDatetimeLocal(new Date(b1.t));
+        document.getElementById('tsTo').value   = toDatetimeLocal(new Date(b2.t + canvas._bucketMs - 1));
         applyFilter();
       });
 
@@ -8039,7 +8044,7 @@ ${evtLine}    \$e.${udm} = "${v}"
 
   function populateBytesColSelects() {
     const detected = detectByteColumns();
-    const safeH = h => h.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    const safeH = h => h.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     const makeOptions = (includeNone) => {
       const none = includeNone ? '<option value="">— none —</option>' : '<option value="">— auto —</option>';
       return none + headers.map(h => `<option value="${safeH(h)}">${h}</option>`).join('');
@@ -8116,7 +8121,7 @@ ${evtLine}    \$e.${udm} = "${v}"
       if (bi < 0 || bi >= buckets.length) return;
       buckets[bi].v1 += v1;
       buckets[bi].v2 += v2;
-      const rowText = Object.values(row).join(' ').toLowerCase();
+      const rowText = row._rt || Object.values(row).join(' ').toLowerCase();
       const hlCls = TL_PRIORITY.find(p => tags.find(tag => tag.colour === p && rowText.includes(tag.term.toLowerCase())));
       if (hlCls) {
         buckets[bi].hlV1 += v1;
@@ -8227,9 +8232,10 @@ ${evtLine}    \$e.${udm} = "${v}"
         const b  = (s.buckets || [])[bi];
         if (!b) { tooltip.style.display = 'none'; return; }
 
+        const _esc = c => String(c).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const lines = [`🕐 ${tlFormatFull(b.t)}`];
-        lines.push(`${s.col1}: ${formatBytes(b.v1)}`);
-        if (s.col2) lines.push(`${s.col2}: ${formatBytes(b.v2)}`);
+        lines.push(`${_esc(s.col1)}: ${formatBytes(b.v1)}`);
+        if (s.col2) lines.push(`${_esc(s.col2)}: ${formatBytes(b.v2)}`);
         if (s.col2) lines.push(`Total: ${formatBytes(b.v1 + b.v2)}`);
 
         tooltip.innerHTML = lines.join('<br>');
@@ -8282,13 +8288,10 @@ ${evtLine}    \$e.${udm} = "${v}"
         bcDrag   = null;
         const b1 = (s.buckets || [])[lo], b2 = (s.buckets || [])[hi];
         if (!b1 || !b2) return;
-        if (lo === hi && !(b1.v1 + b1.v2)) {
-          document.getElementById('tsFrom').value = '';
-          document.getElementById('tsTo').value   = '';
-        } else {
-          document.getElementById('tsFrom').value = toDatetimeLocal(new Date(b1.t));
-          document.getElementById('tsTo').value   = toDatetimeLocal(new Date(b2.t + s.bucketMs - 1));
-        }
+        // Single click on empty bar = do nothing (double-click clears range)
+        if (lo === hi && !(b1.v1 + b1.v2)) return;
+        document.getElementById('tsFrom').value = toDatetimeLocal(new Date(b1.t));
+        document.getElementById('tsTo').value   = toDatetimeLocal(new Date(b2.t + s.bucketMs - 1));
         applyFilter();
       });
 
@@ -9434,6 +9437,15 @@ ${evtLine}    \$e.${udm} = "${v}"
     { label: 'FileCreated',      color: '#c45ab3' },
     { label: 'RegistryValueSet', color: '#f0a500' },
     { label: 'Other',            color: '#4caf80' },
+  ];
+
+  var PT_ACTION_CATS_CHRONICLE = [
+    { label: 'PROCESS_LAUNCH',      color: '#e05c3a' },
+    { label: 'NETWORK_CONNECTION',  color: '#3a9fd6' },
+    { label: 'FILE_CREATION',       color: '#c45ab3' },
+    { label: 'REGISTRY_VALUE_SET',  color: '#f0a500' },
+    { label: 'USER_LOGIN',          color: '#f06292' },
+    { label: 'Other',               color: '#4caf80' },
   ];
 
   var PT_ACTION_CATS_WINSEC = [
@@ -11867,6 +11879,7 @@ const TECHNIQUE_PROFILES = {
   var _ovCardOrder     = [];   // [cardKey, ...] — current drag order, empty = default
   var _ovDragKey       = null; // key of card being dragged
   var _ovChartModes    = {};   // { cardId: 'list'|'pie'|'bars'|'donut' } — persist chart toggles across re-renders
+  var _ovListenersAC   = null; // AbortController for per-render document click listeners (dropdown close handlers)
 
   // ── All standard card definitions for the custom profile builder ──────────────
   var CARD_DEFS = [
@@ -12087,6 +12100,9 @@ const TECHNIQUE_PROFILES = {
   function renderFromData(d, rows) {
     const panel = document.getElementById('overviewPanel');
     if (!panel || !overviewVisible) return;
+    // Abort previous render's document click listeners (dropdown close handlers) to prevent accumulation
+    if (_ovListenersAC) _ovListenersAC.abort();
+    _ovListenersAC = new AbortController();
     // Clean up any card settings dropdowns portalled to body from the previous render
     document.querySelectorAll('.ov-card-dd-portal').forEach(el => el.remove());
     panel.innerHTML = '';
@@ -12226,7 +12242,7 @@ const TECHNIQUE_PROFILES = {
     profileBtn.onclick = e => { e.stopPropagation(); profileDropdown.style.display = profileDropdown.style.display === 'none' ? 'block' : 'none'; };
     document.addEventListener('click', function _closeProfile(e) {
       if (!profileWrap.contains(e.target)) { profileDropdown.style.display = 'none'; }
-    }, { once: false });
+    }, { signal: _ovListenersAC.signal });
 
     profileWrap.appendChild(profileBtn); profileWrap.appendChild(profileDropdown);
 
@@ -12554,12 +12570,12 @@ const TECHNIQUE_PROFILES = {
     settingsBtn.style.cssText = 'cursor:pointer;font-size:13px;margin-left:auto;flex-shrink:0;padding:0 4px;border:none;color:rgba(255,255,255,0.4);background:transparent;transition:color .15s;user-select:none;line-height:1;letter-spacing:1px';
     settingsBtn.textContent = '···';
     settingsBtn.title = 'Card options';
-    settingsBtn.onmouseover = () => settingsBtn.style.color = 'var(--cb-yellow)';
-    settingsBtn.onmouseout  = () => settingsBtn.style.color = 'rgba(255,255,255,0.4)';
     const _refreshSettingsBtn = () => {
       const s = _ovCardSizes[key] || 'normal';
       settingsBtn.style.color = s !== 'normal' ? 'var(--cb-yellow)' : 'rgba(255,255,255,0.4)';
     };
+    settingsBtn.onmouseover = () => settingsBtn.style.color = 'var(--cb-yellow)';
+    settingsBtn.onmouseout  = () => _refreshSettingsBtn();
     _refreshSettingsBtn();
 
     // Dropdown panel — fixed position to avoid overflow clipping
@@ -12650,7 +12666,7 @@ const TECHNIQUE_PROFILES = {
       if (spaceBelow >= ddH) dd.style.top = (r.bottom + 3) + 'px';
       else dd.style.bottom = (window.innerHeight - r.top + 3) + 'px';
     };
-    document.addEventListener('click', () => { dd.style.display = 'none'; });
+    document.addEventListener('click', () => { dd.style.display = 'none'; }, { signal: _ovListenersAC.signal });
     dd.onclick = e => e.stopPropagation();
 
     ddWrap.appendChild(settingsBtn);
@@ -12703,7 +12719,7 @@ const TECHNIQUE_PROFILES = {
       };
       const rUp = () => {
         _ovCardSizes[key] = curSize;
-        _updateResizeBtn();
+        _refreshSettingsBtn();
         rGrip.style.background = 'rgba(120,143,141,0.25)';
         tip.remove();
         document.removeEventListener('mousemove', onMove);
@@ -12802,96 +12818,6 @@ const TECHNIQUE_PROFILES = {
       scheduleOverviewRender();
     };
     dropdown.appendChild(opt);
-  }
-
-  // ── Card: active filters ─────────────────────────────────────────────────────
-  function buildActiveFiltersCard() {
-    const hasTextFilters   = (typeof filterRows !== 'undefined') && filterRows.some(r => r.value && r.value.trim());
-    const hasColFilters    = (typeof columnFilters !== 'undefined') && Object.values(columnFilters).some(v => v !== null);
-    const hasTimeFilter    = document.getElementById('tsFrom')?.value || document.getElementById('tsTo')?.value;
-    if (!hasTextFilters && !hasColFilters && !hasTimeFilter) return null;
-
-    const card = document.createElement('div'); card.className = 'ov-card ov-card-full';
-    const title = document.createElement('div'); title.className = 'ov-card-title';
-    title.textContent = 'Active Filters';
-    const sub = document.createElement('span'); sub.className = 'ov-card-sub';
-    sub.textContent = 'Uncheck to disable · Data updates live';
-    title.appendChild(sub); card.appendChild(title);
-
-    const grid = document.createElement('div'); grid.className = 'ov-active-filters-grid';
-
-    // ── Text / regex / TTP filter rows ──
-    if (typeof filterRows !== 'undefined') {
-      filterRows.filter(r => r.value && r.value.trim()).forEach(r => {
-        const label = r.mode === 'ttp'
-          ? `🎯 ${r.value} · ${r.techName || ''}`
-          : `${r.col ? r.col + ': ' : 'All columns: '}"${r.value}"`;
-        const modeLabel = r.mode === 'ttp' ? 'TTP' : r.mode;
-        addFilterChip(grid, label, modeLabel, true, (enabled) => {
-          // Toggle by adding/removing the row
-          if (!enabled) {
-            filterRows = filterRows.filter(fr => fr.id !== r.id);
-          } else {
-            filterRows.push(r);
-          }
-          renderFilterRows();
-          applyFilter();
-        }, () => {
-          filterRows = filterRows.filter(fr => fr.id !== r.id);
-          renderFilterRows();
-          applyFilter();
-          renderOverview();
-        });
-      });
-    }
-
-    // ── Column value filters ──
-    if (typeof columnFilters !== 'undefined') {
-      Object.entries(columnFilters).filter(([,v]) => v !== null).forEach(([col, allowed]) => {
-        const count = allowed ? allowed.size : 0;
-        const label = `${col}: ${count} value${count !== 1 ? 's' : ''}`;
-        addFilterChip(grid, label, 'Column', true, (enabled) => {
-          if (!enabled) columnFilters[col] = null;
-          applyFilter(); renderColFilterChips();
-        }, () => {
-          columnFilters[col] = null;
-          applyFilter(); renderColFilterChips(); renderOverview();
-        });
-      });
-    }
-
-    // ── Timestamp range ──
-    const tsFrom = document.getElementById('tsFrom')?.value;
-    const tsTo   = document.getElementById('tsTo')?.value;
-    if (tsFrom || tsTo) {
-      const label = `Time: ${tsFrom || '…'} → ${tsTo || '…'}`;
-      addFilterChip(grid, label, 'Time', true, (enabled) => {
-        if (!enabled) {
-          document.getElementById('tsFrom').value = '';
-          document.getElementById('tsTo').value = '';
-          applyFilter();
-        }
-      }, () => {
-        document.getElementById('tsFrom').value = '';
-        document.getElementById('tsTo').value = '';
-        applyFilter(); renderOverview();
-      });
-    }
-
-    card.appendChild(grid);
-    return card;
-  }
-
-  function addFilterChip(parent, label, badge, checked, onToggle, onRemove) {
-    const chip = document.createElement('div'); chip.className = 'ov-filter-chip';
-    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = checked;
-    cb.onchange = () => onToggle(cb.checked);
-    const lbl = document.createElement('span'); lbl.className = 'ov-filter-chip-label'; lbl.textContent = label; lbl.title = label;
-    const badgeEl = document.createElement('span'); badgeEl.className = 'ov-filter-chip-badge'; badgeEl.textContent = badge;
-    const rm = document.createElement('span'); rm.className = 'ov-filter-chip-rm'; rm.textContent = '×'; rm.title = 'Remove filter';
-    rm.onclick = onRemove;
-    chip.appendChild(cb); chip.appendChild(lbl); chip.appendChild(badgeEl); chip.appendChild(rm);
-    parent.appendChild(chip);
   }
 
   // ── TTP Context Card — structured per-event investigation detail ─────────────
@@ -13137,37 +13063,6 @@ const TECHNIQUE_PROFILES = {
   }
 
   // ── Card: hosts + accounts (two sections, one card) ──────────────────────────
-  // ── Shared chart toggle helper ────────────────────────────────────────────────
-  // Adds ◉/≡ toggle to a card title and swaps between list and pie chart.
-  // entries = [[label, count], ...], colName used for click-to-filter.
-  function _addChartToggle(card, title, entries, colName) {
-    let mode = 'list';
-    const contentEl = document.createElement('div'); contentEl.className = 'ov-chart-area';
-
-    const render = () => {
-      contentEl.innerHTML = '';
-      if (mode === 'pie') {
-        contentEl.appendChild(_buildDonutChart(entries.slice(0, 12), colName));
-      } else {
-        entries.forEach(([label, count]) => {
-          contentEl.appendChild(ovRow(colName, label, label, count.toLocaleString()));
-        });
-      }
-    };
-
-    const btn = document.createElement('button');
-    btn.style.cssText = 'margin-left:auto;font-size:9px;padding:1px 7px;background:transparent;border:1px solid var(--cb-os1);border-radius:3px;color:var(--cb-muted);cursor:pointer;flex-shrink:0;transition:all .15s';
-    const refresh = () => { btn.textContent = mode === 'list' ? '◉ Chart' : '≡ List'; btn.title = mode === 'list' ? 'Switch to pie chart' : 'Switch to list'; };
-    refresh();
-    btn.onmouseover = () => btn.style.background = 'rgba(255,255,255,0.06)';
-    btn.onmouseout  = () => btn.style.background = 'transparent';
-    btn.onclick = e => { e.stopPropagation(); mode = mode === 'list' ? 'pie' : 'list'; refresh(); render(); };
-    title.appendChild(btn);
-
-    render();
-    card.appendChild(contentEl);
-  }
-
   function buildHostsAccountsCard(scope, s) {
     const card = document.createElement('div'); card.className = 'ov-card';
     card.dataset.chartKey = 'hosts';
@@ -13418,7 +13313,7 @@ const TECHNIQUE_PROFILES = {
     return wrap;
   }
 
-  function _buildDonutChart(entries) {
+  function _buildDonutChart(entries, colName) {
     const size = 200; const cx = size/2; const cy = size/2; const r = 75; const innerR = 42;
     const total = entries.reduce((s,[,c])=>s+c,0);
     const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
@@ -13438,8 +13333,10 @@ const TECHNIQUE_PROFILES = {
       path.setAttribute('fill', COLORS[i % COLORS.length]);
       path.setAttribute('stroke','var(--modal-bg)'); path.setAttribute('stroke-width','1.5');
       path.style.cursor = 'pointer';
-      path.title = `${label}: ${count.toLocaleString()} (${Math.round(count/total*100)}%)`;
-      path.onclick = () => filterFromOverview('action', label);
+      const svgTitle = document.createElementNS('http://www.w3.org/2000/svg','title');
+      svgTitle.textContent = `${label}: ${count.toLocaleString()} (${Math.round(count/total*100)}%)`;
+      path.appendChild(svgTitle);
+      path.onclick = () => filterFromOverview(colName || '', label);
       const mid = angle + sweep/2;
       path.onmouseover = () => path.setAttribute('opacity','0.8');
       path.onmouseout  = () => path.removeAttribute('opacity');
@@ -13462,7 +13359,7 @@ const TECHNIQUE_PROFILES = {
     const legend = document.createElement('div'); legend.style.cssText='display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px;max-height:200px;overflow-y:auto';
     entries.slice(0,10).forEach(([label,count],i) => {
       const row = document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:5px;cursor:pointer;font-size:10px';
-      row.onclick = () => filterFromOverview('action', label);
+      row.onclick = () => filterFromOverview(colName || '', label);
       const dot = document.createElement('span'); dot.style.cssText=`width:8px;height:8px;border-radius:50%;background:${COLORS[i%COLORS.length]};flex-shrink:0`;
       const lbl = document.createElement('span'); lbl.style.cssText='color:var(--modal-text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'; lbl.textContent=label; lbl.title=label;
       const pct = document.createElement('span'); pct.style.cssText='color:var(--cb-muted)'; pct.textContent=Math.round(count/total*100)+'%';
@@ -14974,9 +14871,20 @@ const TECHNIQUE_PROFILES = {
       user:       'principal.user.userid',
       action:     'metadata.event_type',
       cmdline:    'principal.process.command_line',
+      fileName:   'principal.process.file.full_path',
+      filePath:   'principal.process.file.full_path',
+      pid:        'principal.process.pid',
+      initFile:   'principal.process.parent_process.file.full_path',
+      initPid:    'principal.process.parent_process.pid',
+      initCmd:    'principal.process.parent_process.command_line',
       remoteIp:   'target.ip',
       remotePort: 'target.port',
+      remoteUrl:  'target.hostname',
       sha256:     'principal.process.file.sha256',
+      regKey:     'target.registry.registry_key',
+      regVal:     'target.registry.registry_value_name',
+      regData:    'target.registry.registry_value_data',
+      targetUser: 'target.user.userid',
       severity:   'security_result.severity',
     },
 
@@ -14986,7 +14894,7 @@ const TECHNIQUE_PROFILES = {
     ],
 
     get actionCategories() {
-      return (typeof PT_ACTION_CATS_DEFENDER !== 'undefined') ? PT_ACTION_CATS_DEFENDER : [];
+      return (typeof PT_ACTION_CATS_CHRONICLE !== 'undefined') ? PT_ACTION_CATS_CHRONICLE : [];
     },
 
     queryLabel: 'Chronicle UDM',
@@ -15643,7 +15551,7 @@ function computeMitreDetections(cols, n) {
     ['T1055.001',i=>/Invoke-DllInjection|ReflectivePEInjection/i.test(c[i]||'')],
     ['T1055.012',i=>/process.*hollow|hollowing/i.test(c[i]||'')],
     // Defense Evasion
-    ['T1027',    i=>/-enc(?:odedCommand)?\s+[A-Za-z0-9+\/]{16,}/i.test(c[i]||'')||/FromBase64String|::FromBase64/i.test(c[i]||'')||(c[i]||'').length>500],
+    ['T1027',    i=>/FromBase64String|::FromBase64/i.test(c[i]||'')||(c[i]||'').length>500],
     ['T1027.010',i=>/-enc(?:odedCommand)?\s+[A-Za-z0-9+\/]{16,}/i.test(c[i]||'')||/\^|`[a-z]|char\(\d+\)/i.test(c[i]||'')],
     ['T1140',    i=>/certutil.*-decode/i.test(c[i]||'')||/FromBase64String/i.test(c[i]||'')||/expand.*-f/i.test(c[i]||'')],
     ['T1218.005',i=>/mshta/i.test(f[i]||fi[i]||'')],
@@ -15654,7 +15562,7 @@ function computeMitreDetections(cols, n) {
     ['T1218.004',i=>/installutil/i.test(f[i]||fi[i]||'')],
     ['T1127.001',i=>/msbuild/i.test(f[i]||fi[i]||'')],
     ['T1220',    i=>/wmic.*\/format|msxsl/i.test(c[i]||'')],
-    ['T1562',    i=>/Set-MpPreference.*Disable|Add-MpPreference.*Exclusion|netsh.*firewall.*disable|sc.*stop.*windefend|wevtutil.*cl|Clear-EventLog|auditpol.*no.*auditing|DisableRealtimeMonitoring/i.test(c[i]||'')],
+    ['T1562',    i=>/bcdedit.*safeboot|DisableRealtimeMonitoring|DisableBehaviorMonitoring/i.test(c[i]||'')],
     ['T1562.001',i=>/Set-MpPreference.*Disable|Add-MpPreference.*Exclusion/i.test(c[i]||'')||/netsh.*firewall.*disable|sc.*stop.*windefend/i.test(c[i]||'')],
     ['T1562.002',i=>/wevtutil.*cl|Clear-EventLog/i.test(c[i]||'')||/auditpol.*\/set.*no.*auditing/i.test(c[i]||'')],
     ['T1070.001',i=>/wevtutil.*cl|wevtutil.*clear/i.test(c[i]||'')||/Clear-EventLog/i.test(c[i]||'')],
@@ -15666,7 +15574,7 @@ function computeMitreDetections(cols, n) {
     // Credential Access
     ['T1003.001',i=>/procdump.*lsass|lsass.*dump|comsvcs.*minidump|mimikatz|wce\.exe|lazagne/i.test(c[i]||'')||/sekurlsa|hashdump|lsadump/i.test(c[i]||'')],
     ['T1003.002',i=>/reg\s+save.*sam|reg\s+save.*system|ntdsutil/i.test(c[i]||'')||/lsadump::sam/i.test(c[i]||'')],
-    ['T1003.003',i=>/ntdsutil|vssadmin.*create.*shadow/i.test(c[i]||'')||/lsadump::dcsync/i.test(c[i]||'')],
+    ['T1003.003',i=>/ntdsutil|vssadmin.*create.*shadow/i.test(c[i]||'')],
     ['T1003.006',i=>/lsadump::dcsync|drsuapi|DCSync/i.test(c[i]||'')],
     ['T1558.003',i=>/kerberoast|Invoke-Kerberoast|GetUserSPNs/i.test(c[i]||'')],
     ['T1558.001',i=>/golden.*ticket|kerberos::golden|mimikatz.*krbtgt/i.test(c[i]||'')],
@@ -16131,6 +16039,13 @@ function computeFreqTimeline(cols, isWinSec, n) {
       if (/^(4103|4104)$/.test(a))     return 'script';
       return 'other';
     }
+    // Chronicle UDM event types
+    if (/process_launch|process_termination/i.test(a))        return 'process';
+    if (/network_connection|dns_query|dns_lookup/i.test(a))   return 'network';
+    if (/file_creation|file_modification|file_deletion/i.test(a)) return 'file';
+    if (/registry_value_set|registry_value_deletion/i.test(a)) return 'registry';
+    if (/user_login|user_logout/i.test(a))                    return 'logon';
+    // Defender ActionType strings
     if (/processcreated/i.test(a)) return 'process';
     if (/network/i.test(a))        return 'network';
     if (/file/i.test(a))           return 'file';

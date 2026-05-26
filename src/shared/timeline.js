@@ -87,7 +87,7 @@
       const bi = Math.floor((t - startT) / bucketMs);
       if (bi < 0 || bi >= buckets.length) return;
       buckets[bi].total++;
-      const rowText = Object.values(row).join(' ').toLowerCase();
+      const rowText = row._rt || Object.values(row).join(' ').toLowerCase();
       const hlCls = TL_PRIORITY.find(p => tags.find(tag => tag.colour === p && rowText.includes(tag.term.toLowerCase())));
       if (hlCls) buckets[bi].hl[hlCls] = (buckets[bi].hl[hlCls] || 0) + 1;
     });
@@ -234,14 +234,10 @@
         const b1 = bs[lo], b2 = bs[hi];
         if (!b1 || !b2) return;
 
-        // Single click on empty bar = clear range
-        if (lo === hi && !b1.total) {
-          document.getElementById('tsFrom').value = '';
-          document.getElementById('tsTo').value   = '';
-        } else {
-          document.getElementById('tsFrom').value = toDatetimeLocal(new Date(b1.t));
-          document.getElementById('tsTo').value   = toDatetimeLocal(new Date(b2.t + canvas._bucketMs - 1));
-        }
+        // Single click on empty bar = do nothing (double-click clears range)
+        if (lo === hi && !b1.total) return;
+        document.getElementById('tsFrom').value = toDatetimeLocal(new Date(b1.t));
+        document.getElementById('tsTo').value   = toDatetimeLocal(new Date(b2.t + canvas._bucketMs - 1));
         applyFilter();
       });
 
@@ -316,7 +312,7 @@
 
   function populateBytesColSelects() {
     const detected = detectByteColumns();
-    const safeH = h => h.replace(/&/g,'&amp;').replace(/"/g,'&quot;');
+    const safeH = h => h.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
     const makeOptions = (includeNone) => {
       const none = includeNone ? '<option value="">— none —</option>' : '<option value="">— auto —</option>';
       return none + headers.map(h => `<option value="${safeH(h)}">${h}</option>`).join('');
@@ -393,7 +389,7 @@
       if (bi < 0 || bi >= buckets.length) return;
       buckets[bi].v1 += v1;
       buckets[bi].v2 += v2;
-      const rowText = Object.values(row).join(' ').toLowerCase();
+      const rowText = row._rt || Object.values(row).join(' ').toLowerCase();
       const hlCls = TL_PRIORITY.find(p => tags.find(tag => tag.colour === p && rowText.includes(tag.term.toLowerCase())));
       if (hlCls) {
         buckets[bi].hlV1 += v1;
@@ -504,9 +500,10 @@
         const b  = (s.buckets || [])[bi];
         if (!b) { tooltip.style.display = 'none'; return; }
 
+        const _esc = c => String(c).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
         const lines = [`🕐 ${tlFormatFull(b.t)}`];
-        lines.push(`${s.col1}: ${formatBytes(b.v1)}`);
-        if (s.col2) lines.push(`${s.col2}: ${formatBytes(b.v2)}`);
+        lines.push(`${_esc(s.col1)}: ${formatBytes(b.v1)}`);
+        if (s.col2) lines.push(`${_esc(s.col2)}: ${formatBytes(b.v2)}`);
         if (s.col2) lines.push(`Total: ${formatBytes(b.v1 + b.v2)}`);
 
         tooltip.innerHTML = lines.join('<br>');
@@ -559,13 +556,10 @@
         bcDrag   = null;
         const b1 = (s.buckets || [])[lo], b2 = (s.buckets || [])[hi];
         if (!b1 || !b2) return;
-        if (lo === hi && !(b1.v1 + b1.v2)) {
-          document.getElementById('tsFrom').value = '';
-          document.getElementById('tsTo').value   = '';
-        } else {
-          document.getElementById('tsFrom').value = toDatetimeLocal(new Date(b1.t));
-          document.getElementById('tsTo').value   = toDatetimeLocal(new Date(b2.t + s.bucketMs - 1));
-        }
+        // Single click on empty bar = do nothing (double-click clears range)
+        if (lo === hi && !(b1.v1 + b1.v2)) return;
+        document.getElementById('tsFrom').value = toDatetimeLocal(new Date(b1.t));
+        document.getElementById('tsTo').value   = toDatetimeLocal(new Date(b2.t + s.bucketMs - 1));
         applyFilter();
       });
 

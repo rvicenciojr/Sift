@@ -414,7 +414,7 @@
             const colEl = document.getElementById(`fr-col-${row.id}`);
             if (colEl) row.col = colEl.value;
           });
-          outgoing.filterRows    = JSON.parse(JSON.stringify(filterRows || []));
+          outgoing.filterRows    = (filterRows || []).map(function(r) { return Object.assign({}, r); });
           outgoing.columnFilters = cloneColumnFilters(columnFilters || {});
           outgoing.tags          = [...tags];
         }
@@ -459,9 +459,17 @@
     hiddenCols = new Set(tab.hiddenCols || []);
     sortCol = tab.sortCol;
     sortDir = tab.sortDir;
-    // Always restore filters (they persist by default)
-    filterRows = JSON.parse(JSON.stringify(tab.filterRows || []));
-    columnFilters = cloneColumnFilters(tab.columnFilters || {});
+    // In per-tab mode restore this tab's saved filters; in global mode keep current filters unchanged
+    if (!globalMode) {
+      filterRows    = (tab.filterRows || []).map(function(r) { return Object.assign({}, r); });
+      columnFilters = cloneColumnFilters(tab.columnFilters || {});
+    } else {
+      // TTP rows hold matchingSet references tied to a specific tab's allRows — strip them on
+      // tab switch so they don't silently return 0 results against a different tab's data
+      filterRows = filterRows.filter(function(r) { return r.mode !== 'ttp'; });
+    }
+    // Keep counter at least as high as the max id in restored rows to prevent duplicate ids
+    filterRowCounter = filterRows.reduce(function(m, r) { return Math.max(m, r.id || 0); }, filterRowCounter);
     currentPage = tab.currentPage;
     filteredSorted = tab.filteredSorted;
     visibleRows = tab.visibleRows;
@@ -804,8 +812,8 @@
     const from = document.getElementById('tsFrom').value;
     const to   = document.getElementById('tsTo').value;
     if (!sel || !sel.value || (!from && !to)) return rows;
-    const fromMs = from ? new Date(from).getTime() : -Infinity;
-    const toMs   = to   ? new Date(to).getTime()   :  Infinity;
+    const fromMs = from ? new Date(from).getTime()         : -Infinity;
+    const toMs   = to   ? new Date(to).getTime() + 59999   :  Infinity;
     // Use pre-computed _ts only when the cached column matches the selected column
     const tab = activeTab();
     const useCached = tab && tab._tsPrecached === sel.value && rows.length && rows[0]._ts !== undefined;
@@ -1319,9 +1327,7 @@
     if (!tab) return;
     tab.sortCol = sortCol;
     tab.sortDir = sortDir;
-    tab.filterRows = (filterRows || []).map(function(r) {
-      return { id: r.id, col: r.col, mode: r.mode, value: r.value, connector: r.connector };
-    });
+    tab.filterRows = (filterRows || []).map(function(r) { return Object.assign({}, r); });
     tab.columnFilters = cloneColumnFilters(columnFilters || {});
     tab.currentPage = currentPage;
     tab.filteredSorted = filteredSorted;
@@ -1578,8 +1584,8 @@
     // Pagination bar
     const pgBar = document.getElementById('paginationBar');
     const tp = totalPages();
-    // Always show the bar when data is loaded — Export + row count are always useful
-    pgBar.classList.add('visible');
+    // Only show when in table view — overview hides it
+    if (!overviewVisible) pgBar.classList.add('visible');
     const pgTopRow = pgBar.querySelector('.pg-row-top');
     if (tp > 1) {
       if (pgTopRow) pgTopRow.style.display = '';
@@ -1900,7 +1906,8 @@
       tabs.forEach(t => {
         if (!t.blank) {
           t.tags       = [...tags];
-          t.filterRows = JSON.parse(JSON.stringify(filterRows || []));
+          // TTP rows hold tab-specific row references — exclude them from the global push
+          t.filterRows = (filterRows || []).filter(function(r) { return r.mode !== 'ttp'; }).map(function(r) { return Object.assign({}, r); });
           t.columnFilters = cloneColumnFilters(columnFilters || {});
         }
       });
@@ -1994,7 +2001,7 @@
     hlOnly = !hlOnly;
     const btn = document.getElementById('hlOnlyBtn');
     if (btn) {
-      btn.textContent = hlOnly ? '🎯 Show all' : '🎯 Show highlighted';
+      btn.textContent = hlOnly ? '🎯 Showing highlighted' : '🎯 Show highlighted';
       btn.classList.toggle('active', hlOnly);
     }
     applyFilter();
@@ -2199,7 +2206,7 @@
   }
 
   // ── Timeline quick picks ──────────────────────────────────────────────────
-  function tlQuickPick(hours) {
+  function tlQuickPick(hours, e) {
     const colSel = document.getElementById('tsColSelect');
     const col    = colSel ? colSel.value : '';
     const useCol = col || (timestampCols[0] || '');
@@ -2223,7 +2230,7 @@
     document.getElementById('tsTo').value   = fmt(maxMs);
 
     document.querySelectorAll('.tl-qp').forEach(function(b) { b.classList.remove('active'); });
-    if (event && event.target) event.target.classList.add('active');
+    if (e && e.target) e.target.classList.add('active');
 
     applyFilter();
   }
@@ -2448,11 +2455,17 @@
     const nameInput = document.getElementById('presetNameInput');
     const name = (nameInput.value || '').trim();
     if (!name) { nameInput.focus(); return; }
-    if (!filterRows.some(r => r.value.trim())) { return; }
+    // TTP rows hold tab-specific row references — exclude them from presets
+    const saveable = filterRows.filter(function(r) { return r.mode !== 'ttp' && r.value.trim(); });
+    if (!saveable.length) {
+      const hasTtp = filterRows.some(function(r) { return r.mode === 'ttp'; });
+      nameInput.placeholder = hasTtp ? 'TTP filters cannot be saved as presets' : 'No active filters to save';
+      setTimeout(function() { nameInput.placeholder = 'Preset name…'; }, 2500);
+      return;
+    }
     const presets = loadPresets();
-    // Replace if name already exists
     const existing = presets.findIndex(p => p.name.toLowerCase() === name.toLowerCase());
-    const entry = { name: name, rows: JSON.parse(JSON.stringify(filterRows)) };
+    const entry = { name: name, rows: JSON.parse(JSON.stringify(saveable)) };
     if (existing >= 0) presets[existing] = entry;
     else presets.push(entry);
     savePresetsToStorage(presets);

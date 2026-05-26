@@ -57,6 +57,15 @@
     { label: 'Other',            color: '#4caf80' },
   ];
 
+  var PT_ACTION_CATS_CHRONICLE = [
+    { label: 'PROCESS_LAUNCH',      color: '#e05c3a' },
+    { label: 'NETWORK_CONNECTION',  color: '#3a9fd6' },
+    { label: 'FILE_CREATION',       color: '#c45ab3' },
+    { label: 'REGISTRY_VALUE_SET',  color: '#f0a500' },
+    { label: 'USER_LOGIN',          color: '#f06292' },
+    { label: 'Other',               color: '#4caf80' },
+  ];
+
   var PT_ACTION_CATS_WINSEC = [
     { label: 'Process (4688)',        color: '#e05c3a' },  // process creation
     { label: 'Logon / Auth',          color: '#3a9fd6' },  // 4624, 4634, 4648, 4776

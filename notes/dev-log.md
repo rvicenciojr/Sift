@@ -4,6 +4,20 @@ Running record of changes, decisions, and ideas. Updated on commit or when Jayr 
 
 ---
 
+**2026-05-23** — Full code review pass. Six bugs fixed, two dead-code blocks removed.
+
+**Bugs fixed**
+- `_updateResizeBtn` undefined: width-resize `onmouseup` called a function that no longer existed after the settings dropdown refactor. Replaced with `_refreshSettingsBtn()` (the correct function already in scope).
+- `_buildDonutChart` hardcoded `'action'` column: function ignored its second `colName` parameter, so clicking pie/donut slices on Hosts, Processes, and Network cards always filtered by the `action` column instead of the correct one. Fixed signature + click handlers.
+- Event listener memory leak (profile dropdown): `renderFromData` added a new `document.addEventListener` on every re-render with `once: false`, never cleaning up old listeners. Added module-level `_ovListenersAC` AbortController reset each render cycle, scoped the listener to its signal.
+- Event listener memory leak (card settings dropdown): same accumulation pattern — one leaking listener per card per render. Same `_ovListenersAC` signal fix.
+- `settingsBtn` lost yellow state on mouseout: `onmouseout` unconditionally reset color to muted regardless of whether a non-normal size was active. Now calls `_refreshSettingsBtn()` to restore the correct state.
+- `tlQuickPick` used deprecated implicit `event` global: updated function signature to accept `e` parameter; all 6 template call sites updated to pass `event` explicitly.
+
+**Dead code removed**
+- `_addChartToggle`: leftover from before the settings dropdown refactor, no longer called anywhere. Had its own toggle button that would have conflicted if called.
+- `buildActiveFiltersCard` + `addFilterChip`: superseded by the filter strip in the overview header, never rendered. Removed both.
+
 **2026-05-22** — Pushed `dd4a547`. Major overview UX overhaul.
 
 **Card settings dropdown (··· button)**

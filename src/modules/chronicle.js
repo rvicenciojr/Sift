@@ -24,9 +24,20 @@
       user:       'principal.user.userid',
       action:     'metadata.event_type',
       cmdline:    'principal.process.command_line',
+      fileName:   'principal.process.file.full_path',
+      filePath:   'principal.process.file.full_path',
+      pid:        'principal.process.pid',
+      initFile:   'principal.process.parent_process.file.full_path',
+      initPid:    'principal.process.parent_process.pid',
+      initCmd:    'principal.process.parent_process.command_line',
       remoteIp:   'target.ip',
       remotePort: 'target.port',
+      remoteUrl:  'target.hostname',
       sha256:     'principal.process.file.sha256',
+      regKey:     'target.registry.registry_key',
+      regVal:     'target.registry.registry_value_name',
+      regData:    'target.registry.registry_value_data',
+      targetUser: 'target.user.userid',
       severity:   'security_result.severity',
     },
 
@@ -36,7 +47,7 @@
     ],
 
     get actionCategories() {
-      return (typeof PT_ACTION_CATS_DEFENDER !== 'undefined') ? PT_ACTION_CATS_DEFENDER : [];
+      return (typeof PT_ACTION_CATS_CHRONICLE !== 'undefined') ? PT_ACTION_CATS_CHRONICLE : [];
     },
 
     queryLabel: 'Chronicle UDM',

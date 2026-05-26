@@ -97,7 +97,6 @@ def build_variant(variant_dir: Path) -> None:
         html = html.replace('accept=".csv,.evtx"', 'accept=".csv"')
         html = html.replace('Drop a CSV or EVTX file here', 'Drop a CSV file here')
         html = html.replace('or click to browse · supports .csv and .evtx', 'or click to browse · supports .csv')
-        html = html.replace('📂 Open CSV</button>', '📂 Open CSV</button>')  # no-op: stays as Open CSV
     else:
         html = html.replace('📂 Open CSV</button>', '📂 Open File</button>')
 

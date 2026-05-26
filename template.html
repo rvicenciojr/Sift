@@ -86,12 +86,12 @@
     <input type="datetime-local" id="tsTo" oninput="applyFilter()">
     <button style="font-size:11px;padding:3px 9px" onclick="document.getElementById('tsFrom').value='';document.getElementById('tsTo').value='';applyFilter()">✕ Clear</button>
     <div style="display:flex;gap:3px;margin-left:4px" id="tlQuickPicks">
-      <button class="tl-qp" onclick="tlQuickPick(1)">1h</button>
-      <button class="tl-qp" onclick="tlQuickPick(6)">6h</button>
-      <button class="tl-qp" onclick="tlQuickPick(12)">12h</button>
-      <button class="tl-qp" onclick="tlQuickPick(24)">1d</button>
-      <button class="tl-qp" onclick="tlQuickPick(168)">1w</button>
-      <button class="tl-qp" onclick="tlQuickPick(720)">1mo</button>
+      <button class="tl-qp" onclick="tlQuickPick(1,event)">1h</button>
+      <button class="tl-qp" onclick="tlQuickPick(6,event)">6h</button>
+      <button class="tl-qp" onclick="tlQuickPick(12,event)">12h</button>
+      <button class="tl-qp" onclick="tlQuickPick(24,event)">1d</button>
+      <button class="tl-qp" onclick="tlQuickPick(168,event)">1w</button>
+      <button class="tl-qp" onclick="tlQuickPick(720,event)">1mo</button>
     </div>
     <span style="margin-left:auto;font-size:10px;color:var(--cb-text-inverse);opacity:0.45;white-space:nowrap">Drag to zoom · dbl-click reset</span>
   </div>
@@ -1380,7 +1380,7 @@ function computeMitreDetections(cols, n) {
     ['T1055.001',i=>/Invoke-DllInjection|ReflectivePEInjection/i.test(c[i]||'')],
     ['T1055.012',i=>/process.*hollow|hollowing/i.test(c[i]||'')],
     // Defense Evasion
-    ['T1027',    i=>/-enc(?:odedCommand)?\s+[A-Za-z0-9+\/]{16,}/i.test(c[i]||'')||/FromBase64String|::FromBase64/i.test(c[i]||'')||(c[i]||'').length>500],
+    ['T1027',    i=>/FromBase64String|::FromBase64/i.test(c[i]||'')||(c[i]||'').length>500],
     ['T1027.010',i=>/-enc(?:odedCommand)?\s+[A-Za-z0-9+\/]{16,}/i.test(c[i]||'')||/\^|`[a-z]|char\(\d+\)/i.test(c[i]||'')],
     ['T1140',    i=>/certutil.*-decode/i.test(c[i]||'')||/FromBase64String/i.test(c[i]||'')||/expand.*-f/i.test(c[i]||'')],
     ['T1218.005',i=>/mshta/i.test(f[i]||fi[i]||'')],
@@ -1391,7 +1391,7 @@ function computeMitreDetections(cols, n) {
     ['T1218.004',i=>/installutil/i.test(f[i]||fi[i]||'')],
     ['T1127.001',i=>/msbuild/i.test(f[i]||fi[i]||'')],
     ['T1220',    i=>/wmic.*\/format|msxsl/i.test(c[i]||'')],
-    ['T1562',    i=>/Set-MpPreference.*Disable|Add-MpPreference.*Exclusion|netsh.*firewall.*disable|sc.*stop.*windefend|wevtutil.*cl|Clear-EventLog|auditpol.*no.*auditing|DisableRealtimeMonitoring/i.test(c[i]||'')],
+    ['T1562',    i=>/bcdedit.*safeboot|DisableRealtimeMonitoring|DisableBehaviorMonitoring/i.test(c[i]||'')],
     ['T1562.001',i=>/Set-MpPreference.*Disable|Add-MpPreference.*Exclusion/i.test(c[i]||'')||/netsh.*firewall.*disable|sc.*stop.*windefend/i.test(c[i]||'')],
     ['T1562.002',i=>/wevtutil.*cl|Clear-EventLog/i.test(c[i]||'')||/auditpol.*\/set.*no.*auditing/i.test(c[i]||'')],
     ['T1070.001',i=>/wevtutil.*cl|wevtutil.*clear/i.test(c[i]||'')||/Clear-EventLog/i.test(c[i]||'')],
@@ -1403,7 +1403,7 @@ function computeMitreDetections(cols, n) {
     // Credential Access
     ['T1003.001',i=>/procdump.*lsass|lsass.*dump|comsvcs.*minidump|mimikatz|wce\.exe|lazagne/i.test(c[i]||'')||/sekurlsa|hashdump|lsadump/i.test(c[i]||'')],
     ['T1003.002',i=>/reg\s+save.*sam|reg\s+save.*system|ntdsutil/i.test(c[i]||'')||/lsadump::sam/i.test(c[i]||'')],
-    ['T1003.003',i=>/ntdsutil|vssadmin.*create.*shadow/i.test(c[i]||'')||/lsadump::dcsync/i.test(c[i]||'')],
+    ['T1003.003',i=>/ntdsutil|vssadmin.*create.*shadow/i.test(c[i]||'')],
     ['T1003.006',i=>/lsadump::dcsync|drsuapi|DCSync/i.test(c[i]||'')],
     ['T1558.003',i=>/kerberoast|Invoke-Kerberoast|GetUserSPNs/i.test(c[i]||'')],
     ['T1558.001',i=>/golden.*ticket|kerberos::golden|mimikatz.*krbtgt/i.test(c[i]||'')],
@@ -1868,6 +1868,13 @@ function computeFreqTimeline(cols, isWinSec, n) {
       if (/^(4103|4104)$/.test(a))     return 'script';
       return 'other';
     }
+    // Chronicle UDM event types
+    if (/process_launch|process_termination/i.test(a))        return 'process';
+    if (/network_connection|dns_query|dns_lookup/i.test(a))   return 'network';
+    if (/file_creation|file_modification|file_deletion/i.test(a)) return 'file';
+    if (/registry_value_set|registry_value_deletion/i.test(a)) return 'registry';
+    if (/user_login|user_logout/i.test(a))                    return 'logon';
+    // Defender ActionType strings
     if (/processcreated/i.test(a)) return 'process';
     if (/network/i.test(a))        return 'network';
     if (/file/i.test(a))           return 'file';

@@ -11,6 +11,7 @@
   var _ovCardOrder     = [];   // [cardKey, ...] — current drag order, empty = default
   var _ovDragKey       = null; // key of card being dragged
   var _ovChartModes    = {};   // { cardId: 'list'|'pie'|'bars'|'donut' } — persist chart toggles across re-renders
+  var _ovListenersAC   = null; // AbortController for per-render document click listeners (dropdown close handlers)
 
   // ── All standard card definitions for the custom profile builder ──────────────
   var CARD_DEFS = [
@@ -231,6 +232,9 @@
   function renderFromData(d, rows) {
     const panel = document.getElementById('overviewPanel');
     if (!panel || !overviewVisible) return;
+    // Abort previous render's document click listeners (dropdown close handlers) to prevent accumulation
+    if (_ovListenersAC) _ovListenersAC.abort();
+    _ovListenersAC = new AbortController();
     // Clean up any card settings dropdowns portalled to body from the previous render
     document.querySelectorAll('.ov-card-dd-portal').forEach(el => el.remove());
     panel.innerHTML = '';
@@ -370,7 +374,7 @@
     profileBtn.onclick = e => { e.stopPropagation(); profileDropdown.style.display = profileDropdown.style.display === 'none' ? 'block' : 'none'; };
     document.addEventListener('click', function _closeProfile(e) {
       if (!profileWrap.contains(e.target)) { profileDropdown.style.display = 'none'; }
-    }, { once: false });
+    }, { signal: _ovListenersAC.signal });
 
     profileWrap.appendChild(profileBtn); profileWrap.appendChild(profileDropdown);
 
@@ -698,12 +702,12 @@
     settingsBtn.style.cssText = 'cursor:pointer;font-size:13px;margin-left:auto;flex-shrink:0;padding:0 4px;border:none;color:rgba(255,255,255,0.4);background:transparent;transition:color .15s;user-select:none;line-height:1;letter-spacing:1px';
     settingsBtn.textContent = '···';
     settingsBtn.title = 'Card options';
-    settingsBtn.onmouseover = () => settingsBtn.style.color = 'var(--cb-yellow)';
-    settingsBtn.onmouseout  = () => settingsBtn.style.color = 'rgba(255,255,255,0.4)';
     const _refreshSettingsBtn = () => {
       const s = _ovCardSizes[key] || 'normal';
       settingsBtn.style.color = s !== 'normal' ? 'var(--cb-yellow)' : 'rgba(255,255,255,0.4)';
     };
+    settingsBtn.onmouseover = () => settingsBtn.style.color = 'var(--cb-yellow)';
+    settingsBtn.onmouseout  = () => _refreshSettingsBtn();
     _refreshSettingsBtn();
 
     // Dropdown panel — fixed position to avoid overflow clipping
@@ -794,7 +798,7 @@
       if (spaceBelow >= ddH) dd.style.top = (r.bottom + 3) + 'px';
       else dd.style.bottom = (window.innerHeight - r.top + 3) + 'px';
     };
-    document.addEventListener('click', () => { dd.style.display = 'none'; });
+    document.addEventListener('click', () => { dd.style.display = 'none'; }, { signal: _ovListenersAC.signal });
     dd.onclick = e => e.stopPropagation();
 
     ddWrap.appendChild(settingsBtn);
@@ -847,7 +851,7 @@
       };
       const rUp = () => {
         _ovCardSizes[key] = curSize;
-        _updateResizeBtn();
+        _refreshSettingsBtn();
         rGrip.style.background = 'rgba(120,143,141,0.25)';
         tip.remove();
         document.removeEventListener('mousemove', onMove);
@@ -946,96 +950,6 @@
       scheduleOverviewRender();
     };
     dropdown.appendChild(opt);
-  }
-
-  // ── Card: active filters ─────────────────────────────────────────────────────
-  function buildActiveFiltersCard() {
-    const hasTextFilters   = (typeof filterRows !== 'undefined') && filterRows.some(r => r.value && r.value.trim());
-    const hasColFilters    = (typeof columnFilters !== 'undefined') && Object.values(columnFilters).some(v => v !== null);
-    const hasTimeFilter    = document.getElementById('tsFrom')?.value || document.getElementById('tsTo')?.value;
-    if (!hasTextFilters && !hasColFilters && !hasTimeFilter) return null;
-
-    const card = document.createElement('div'); card.className = 'ov-card ov-card-full';
-    const title = document.createElement('div'); title.className = 'ov-card-title';
-    title.textContent = 'Active Filters';
-    const sub = document.createElement('span'); sub.className = 'ov-card-sub';
-    sub.textContent = 'Uncheck to disable · Data updates live';
-    title.appendChild(sub); card.appendChild(title);
-
-    const grid = document.createElement('div'); grid.className = 'ov-active-filters-grid';
-
-    // ── Text / regex / TTP filter rows ──
-    if (typeof filterRows !== 'undefined') {
-      filterRows.filter(r => r.value && r.value.trim()).forEach(r => {
-        const label = r.mode === 'ttp'
-          ? `🎯 ${r.value} · ${r.techName || ''}`
-          : `${r.col ? r.col + ': ' : 'All columns: '}"${r.value}"`;
-        const modeLabel = r.mode === 'ttp' ? 'TTP' : r.mode;
-        addFilterChip(grid, label, modeLabel, true, (enabled) => {
-          // Toggle by adding/removing the row
-          if (!enabled) {
-            filterRows = filterRows.filter(fr => fr.id !== r.id);
-          } else {
-            filterRows.push(r);
-          }
-          renderFilterRows();
-          applyFilter();
-        }, () => {
-          filterRows = filterRows.filter(fr => fr.id !== r.id);
-          renderFilterRows();
-          applyFilter();
-          renderOverview();
-        });
-      });
-    }
-
-    // ── Column value filters ──
-    if (typeof columnFilters !== 'undefined') {
-      Object.entries(columnFilters).filter(([,v]) => v !== null).forEach(([col, allowed]) => {
-        const count = allowed ? allowed.size : 0;
-        const label = `${col}: ${count} value${count !== 1 ? 's' : ''}`;
-        addFilterChip(grid, label, 'Column', true, (enabled) => {
-          if (!enabled) columnFilters[col] = null;
-          applyFilter(); renderColFilterChips();
-        }, () => {
-          columnFilters[col] = null;
-          applyFilter(); renderColFilterChips(); renderOverview();
-        });
-      });
-    }
-
-    // ── Timestamp range ──
-    const tsFrom = document.getElementById('tsFrom')?.value;
-    const tsTo   = document.getElementById('tsTo')?.value;
-    if (tsFrom || tsTo) {
-      const label = `Time: ${tsFrom || '…'} → ${tsTo || '…'}`;
-      addFilterChip(grid, label, 'Time', true, (enabled) => {
-        if (!enabled) {
-          document.getElementById('tsFrom').value = '';
-          document.getElementById('tsTo').value = '';
-          applyFilter();
-        }
-      }, () => {
-        document.getElementById('tsFrom').value = '';
-        document.getElementById('tsTo').value = '';
-        applyFilter(); renderOverview();
-      });
-    }
-
-    card.appendChild(grid);
-    return card;
-  }
-
-  function addFilterChip(parent, label, badge, checked, onToggle, onRemove) {
-    const chip = document.createElement('div'); chip.className = 'ov-filter-chip';
-    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = checked;
-    cb.onchange = () => onToggle(cb.checked);
-    const lbl = document.createElement('span'); lbl.className = 'ov-filter-chip-label'; lbl.textContent = label; lbl.title = label;
-    const badgeEl = document.createElement('span'); badgeEl.className = 'ov-filter-chip-badge'; badgeEl.textContent = badge;
-    const rm = document.createElement('span'); rm.className = 'ov-filter-chip-rm'; rm.textContent = '×'; rm.title = 'Remove filter';
-    rm.onclick = onRemove;
-    chip.appendChild(cb); chip.appendChild(lbl); chip.appendChild(badgeEl); chip.appendChild(rm);
-    parent.appendChild(chip);
   }
 
   // ── TTP Context Card — structured per-event investigation detail ─────────────
@@ -1281,37 +1195,6 @@
   }
 
   // ── Card: hosts + accounts (two sections, one card) ──────────────────────────
-  // ── Shared chart toggle helper ────────────────────────────────────────────────
-  // Adds ◉/≡ toggle to a card title and swaps between list and pie chart.
-  // entries = [[label, count], ...], colName used for click-to-filter.
-  function _addChartToggle(card, title, entries, colName) {
-    let mode = 'list';
-    const contentEl = document.createElement('div'); contentEl.className = 'ov-chart-area';
-
-    const render = () => {
-      contentEl.innerHTML = '';
-      if (mode === 'pie') {
-        contentEl.appendChild(_buildDonutChart(entries.slice(0, 12), colName));
-      } else {
-        entries.forEach(([label, count]) => {
-          contentEl.appendChild(ovRow(colName, label, label, count.toLocaleString()));
-        });
-      }
-    };
-
-    const btn = document.createElement('button');
-    btn.style.cssText = 'margin-left:auto;font-size:9px;padding:1px 7px;background:transparent;border:1px solid var(--cb-os1);border-radius:3px;color:var(--cb-muted);cursor:pointer;flex-shrink:0;transition:all .15s';
-    const refresh = () => { btn.textContent = mode === 'list' ? '◉ Chart' : '≡ List'; btn.title = mode === 'list' ? 'Switch to pie chart' : 'Switch to list'; };
-    refresh();
-    btn.onmouseover = () => btn.style.background = 'rgba(255,255,255,0.06)';
-    btn.onmouseout  = () => btn.style.background = 'transparent';
-    btn.onclick = e => { e.stopPropagation(); mode = mode === 'list' ? 'pie' : 'list'; refresh(); render(); };
-    title.appendChild(btn);
-
-    render();
-    card.appendChild(contentEl);
-  }
-
   function buildHostsAccountsCard(scope, s) {
     const card = document.createElement('div'); card.className = 'ov-card';
     card.dataset.chartKey = 'hosts';
@@ -1562,7 +1445,7 @@
     return wrap;
   }
 
-  function _buildDonutChart(entries) {
+  function _buildDonutChart(entries, colName) {
     const size = 200; const cx = size/2; const cy = size/2; const r = 75; const innerR = 42;
     const total = entries.reduce((s,[,c])=>s+c,0);
     const svg = document.createElementNS('http://www.w3.org/2000/svg','svg');
@@ -1582,8 +1465,10 @@
       path.setAttribute('fill', COLORS[i % COLORS.length]);
       path.setAttribute('stroke','var(--modal-bg)'); path.setAttribute('stroke-width','1.5');
       path.style.cursor = 'pointer';
-      path.title = `${label}: ${count.toLocaleString()} (${Math.round(count/total*100)}%)`;
-      path.onclick = () => filterFromOverview('action', label);
+      const svgTitle = document.createElementNS('http://www.w3.org/2000/svg','title');
+      svgTitle.textContent = `${label}: ${count.toLocaleString()} (${Math.round(count/total*100)}%)`;
+      path.appendChild(svgTitle);
+      path.onclick = () => filterFromOverview(colName || '', label);
       const mid = angle + sweep/2;
       path.onmouseover = () => path.setAttribute('opacity','0.8');
       path.onmouseout  = () => path.removeAttribute('opacity');
@@ -1606,7 +1491,7 @@
     const legend = document.createElement('div'); legend.style.cssText='display:flex;flex-direction:column;gap:4px;flex:1;min-width:140px;max-height:200px;overflow-y:auto';
     entries.slice(0,10).forEach(([label,count],i) => {
       const row = document.createElement('div'); row.style.cssText='display:flex;align-items:center;gap:5px;cursor:pointer;font-size:10px';
-      row.onclick = () => filterFromOverview('action', label);
+      row.onclick = () => filterFromOverview(colName || '', label);
       const dot = document.createElement('span'); dot.style.cssText=`width:8px;height:8px;border-radius:50%;background:${COLORS[i%COLORS.length]};flex-shrink:0`;
       const lbl = document.createElement('span'); lbl.style.cssText='color:var(--modal-text);flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap'; lbl.textContent=label; lbl.title=label;
       const pct = document.createElement('span'); pct.style.cssText='color:var(--cb-muted)'; pct.textContent=Math.round(count/total*100)+'%';
