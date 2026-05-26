@@ -1212,7 +1212,7 @@
       const renderDev = () => {
         devArea.innerHTML = '';
         if (_ovChartModes['hosts'] === 'pie') devArea.appendChild(_buildDonutChart(scope.devicesSorted.slice(0,10), s.deviceCol));
-        else scope.devicesSorted.forEach(([d,c]) => devArea.appendChild(ovRow(s.deviceCol, d, d, c.toLocaleString())));
+        else _appendCappedRows(devArea, scope.devicesSorted, ([d,c]) => ovRow(s.deviceCol, d, d, c.toLocaleString()));
       };
       renderDev(); card.addEventListener('ov-chart-change', renderDev); card.appendChild(devArea);
     }
@@ -1225,7 +1225,7 @@
       const renderUsr = () => {
         usrArea.innerHTML = '';
         if (_ovChartModes['hosts'] === 'pie') usrArea.appendChild(_buildDonutChart(scope.usersSorted.slice(0,10), s.userCol));
-        else scope.usersSorted.forEach(([u,c]) => usrArea.appendChild(ovRow(s.userCol, u, u, c.toLocaleString())));
+        else _appendCappedRows(usrArea, scope.usersSorted, ([u,c]) => ovRow(s.userCol, u, u, c.toLocaleString()));
       };
       renderUsr(); card.addEventListener('ov-chart-change', renderUsr); card.appendChild(usrArea);
     }
@@ -1255,7 +1255,7 @@
     const area = document.createElement('div'); area.className = 'ov-chart-area';
     const render = () => { area.innerHTML = '';
       if (_ovChartModes['process'] === 'pie') area.appendChild(_buildDonutChart(process.sorted.slice(0,12), s.fileCol));
-      else process.sorted.forEach(([n,c]) => area.appendChild(ovRow(s.fileCol, n, n, c.toLocaleString())));
+      else _appendCappedRows(area, process.sorted, ([n,c]) => ovRow(s.fileCol, n, n, c.toLocaleString()));
     };
     render(); card.addEventListener('ov-chart-change', render); card.appendChild(area);
     return card;
@@ -1325,7 +1325,7 @@
         if (_ovChartModes['net-ip'] === 'pie') {
           ipArea.appendChild(_buildDonutChart(network.ipSorted.slice(0,10), s.remoteIpCol));
         } else {
-          network.ipSorted.forEach(([ip,c]) => ipArea.appendChild(ovRow(s.remoteIpCol, ip, ip, c.toLocaleString())));
+          _appendCappedRows(ipArea, network.ipSorted, ([ip,c]) => ovRow(s.remoteIpCol, ip, ip, c.toLocaleString()));
           // Bug fix 2: beaconing inside ipArea so it hides when chart mode is active
           if (network.beacons && network.beacons.length) {
             const bhdr = document.createElement('div'); bhdr.className = 'ov-section-hdr';
@@ -2648,6 +2648,17 @@
     wrap.addEventListener('mouseenter', () => { _ovHoveredList = wrap; _ovHoveredRegion = 'list'; });
     wrap.addEventListener('mouseleave', () => { if (_ovHoveredList === wrap) _ovHoveredList = null; });
     return wrap;
+  }
+
+  // Append capped rows directly to an existing area (for chart-toggle cards
+  // that re-render in place and can't use ovScrollList's wrapper)
+  function _appendCappedRows(area, entries, makeRow) {
+    entries.slice(0, OV_CAP).forEach(e => { const el = makeRow(e); if (el) area.appendChild(el); });
+    if (entries.length > OV_CAP) {
+      const more = document.createElement('div'); more.className = 'ov-list-more';
+      more.textContent = `…and ${(entries.length-OV_CAP).toLocaleString()} more`;
+      area.appendChild(more);
+    }
   }
 
   // ── Card: custom pinned field ─────────────────────────────────────────────────

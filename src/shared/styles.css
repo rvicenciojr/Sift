@@ -2438,7 +2438,8 @@
   }
 
   /* Scrollable list container inside cards */
-  .ov-card-list {
+  .ov-card-list,
+  .ov-chart-area {
     max-height: 220px;
     overflow-y: auto;
     overflow-x: hidden;
@@ -2446,10 +2447,14 @@
     padding: 0 4px;
   }
 
-  .ov-card-list::-webkit-scrollbar { width: 5px; }
-  .ov-card-list::-webkit-scrollbar-track { background: transparent; }
-  .ov-card-list::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.35); border-radius: 3px; }
-  .ov-card-list::-webkit-scrollbar-thumb:hover { background: rgba(128,128,128,0.6); }
+  .ov-card-list::-webkit-scrollbar,
+  .ov-chart-area::-webkit-scrollbar { width: 5px; }
+  .ov-card-list::-webkit-scrollbar-track,
+  .ov-chart-area::-webkit-scrollbar-track { background: transparent; }
+  .ov-card-list::-webkit-scrollbar-thumb,
+  .ov-chart-area::-webkit-scrollbar-thumb { background: rgba(128,128,128,0.35); border-radius: 3px; }
+  .ov-card-list::-webkit-scrollbar-thumb:hover,
+  .ov-chart-area::-webkit-scrollbar-thumb:hover { background: rgba(128,128,128,0.6); }
 
   .ov-list-more {
     font-size: 10px;
