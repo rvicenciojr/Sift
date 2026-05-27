@@ -1,4 +1,4 @@
-# Sift — Threat Hunting & Incident Response Investigation
+# Sift
 
 [![Build](https://github.com/rvicenciojr/Sift-ThreatHuntingInvestigator/actions/workflows/build.yml/badge.svg)](https://github.com/rvicenciojr/Sift-ThreatHuntingInvestigator/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
@@ -12,10 +12,12 @@ A browser-based, offline investigation tool for security analysts and IT profess
 ## Quick start
 
 1. Grab the right `.html` file from the [latest release](https://github.com/rvicenciojr/Sift-ThreatHuntingInvestigator/releases/latest) — most users want **`hunt-investigator.html`**
-2. Open it in **Chrome** or **Microsoft Edge**
+2. Open it in **Chrome** or **Microsoft Edge** (Chromium — Firefox and Safari aren't supported)
 3. Drag your CSV (or `.evtx`) onto the page
 
 That's it. No install, no server, no setup.
+
+![Landing page](screenshots/landing.png)
 
 > **Want to try before loading real data?** Drop one of the sample files onto the matching tool:
 > - [`examples/sample-defender.csv`](examples/sample-defender.csv) → `hunt-investigator.html` — fabricated Defender attack chain
@@ -61,9 +63,14 @@ If a file feels sluggish, narrow the export at the source (Chronicle/Defender qu
 **Threat hunting layer** — adaptive dashboard + analysis tools on top of the viewer:
 - [Overview Dashboard](#overview-dashboard)
 - [🌲 Process Tree](#-process-tree)
-- [Other Analysis Tools](#other-analysis-tools)
+- [Analysis Toolkit](#analysis-toolkit)
+  - [🗺 Network Map](#-network-map)
+  - [🔍 Script Decoder](#-script-decoder)
+  - [📊 Timeline](#-timeline)
+  - [📈 Bytes Chart](#-bytes-chart)
+  - [🔨 Query Builder](#-query-builder)
 
-**Reference**:
+**Reference** — workflow, FAQ, log source schemas, dev docs:
 - [Typical investigation workflow](#typical-investigation-workflow)
 - [FAQ & troubleshooting](#faq--troubleshooting)
 - [Supported log sources](#supported-log-sources)
@@ -84,18 +91,6 @@ If a file feels sluggish, narrow the export at the source (Chronicle/Defender qu
 | `sift-chronicle.html` | Google Chronicle / UDM only |
 | `sift-defender-windows.html` | Defender CSVs **and** Windows Event Logs in the same investigation |
 | `sift-chronicle-windows.html` | Chronicle CSVs **and** Windows Event Logs in the same investigation |
-
-### Opening the tool
-
-1. Get the right HTML file from the `dist/` folder (or from whoever sent it to you)
-2. Open it in **Chrome** or **Microsoft Edge**
-3. Drag and drop your log file onto the page, or click **📂 Open CSV**
-
-That's it. One file, nothing else needed. Works completely offline.
-
-![Landing page](screenshots/landing.png)
-
-> **Supported browsers:** Chrome or Microsoft Edge (Chromium). Not compatible with Safari or Internet Explorer.
 
 ### Working with multiple files (Tabs)
 
@@ -238,6 +233,37 @@ Open with **📋 Overview** in the analysis toolbar — this is the main startin
 | **Top Offenders** | Top source IPs (failed logons), targeted accounts, spawned processes — each row clickable to filter |
 | **Attack Chain** | Events in chronological order grouped into attack stages (Windows Security Event Logs only) |
 
+### Notable Indicators
+
+Auto-flagged suspicious patterns — always visible at the top of the Overview, sorted by active profile relevance.
+
+| Severity | Rule |
+|----------|------|
+| 🔴 Critical | Encoded PowerShell (-enc / -encodedCommand) |
+| 🔴 Critical | Inline Base64 decode (FromBase64String) |
+| 🔴 Critical | Office application spawning shell |
+| 🔴 Critical | Credential dumping (lsass, mimikatz, comsvcs MiniDump) |
+| 🔴 Critical | Process injection patterns |
+| 🔴 Critical | Web server spawning shell (web shell activity) |
+| 🔴 Critical | Forced authentication / NTLM capture tool |
+| 🔴 Critical | Data destruction command pattern |
+| 🟠 High | Scheduled task creation |
+| 🟠 High | WMI remote execution |
+| 🟠 High | Service installation or modification |
+| 🟠 High | LOLBin usage (certutil, mshta, rundll32, regsvr32, wscript, bitsadmin) |
+| 🟠 High | PowerShell download cradle |
+| 🟠 High | Remote access software detected (AnyDesk, TeamViewer, ScreenConnect, ngrok) |
+| 🟠 High | BITS job used for download or persistence |
+| 🟠 High | Account creation command detected |
+| 🟠 High | Critical service stopped (backup/AV/database) |
+| 🟠 High | Cloud storage contact (potential exfiltration) |
+| 🟠 High | Execution from suspicious path (%TEMP% / AppData / Public) |
+| 🟠 High | Heavily obfuscated / long command line (>500 chars) |
+| 🟡 Medium | High-port outbound connections (>49151) |
+| 🟡 Medium | Suspicious TLD contact (.xyz, .top, .tk, .ru, .pw, .cc) |
+| 🟡 Medium | Domain trust discovery |
+| 🟡 Medium | Lateral tool transfer via admin share |
+
 ### ATT&CK Coverage Card
 
 Runs MITRE ATT&CK detection signatures against your data and shows which tactics fired with hit counts. When a tactic or technique is selected in the Investigating dropdown, the coverage card filters to show only that tactic's bar.
@@ -252,7 +278,7 @@ Shows all tactics with detected techniques. Click a tactic to expand and see ind
 
 The **"Investigating: ▾"** dropdown reshapes the dashboard for a specific investigation type. It has three sections:
 
-**Custom Profiles** (top) — any profiles you've saved appear here for one-click recall.
+**Custom Profiles** (top) — any profiles you've saved appear here for one-click recall. See [Custom Profiles](#custom-profiles) below for how to build them.
 
 **General IT** — non-security profiles useful for any structured log data:
 
@@ -330,9 +356,7 @@ Click **＋ Build custom profile…** at the bottom of the Investigating dropdow
 
 When a custom profile is active, the overview shows **only** the cards you selected — MITRE coverage, indicators, Top-N, and the frequency timeline are suppressed for a clean focused view.
 
-### Custom Field Cards
-
-The **＋ Field** button in the overview header lets you pin any column as a frequency card without building a full custom profile. Cards show top 25 values with click-to-filter. Dismiss with × to remove.
+**Quick alternative — ＋ Field button.** If you just want to pin one column as a frequency card without building a full profile, the **＋ Field** button in the overview header does it inline. Top 25 values shown, click any to filter, dismiss with ×.
 
 ### Windows Security specific cards
 
@@ -353,37 +377,6 @@ The **Attack Chain** card (also Windows Security only) places events in chronolo
 
 ![Attack Chain card — events grouped chronologically by stage](screenshots/attack-chain.png)
 
-### Notable Indicators
-
-Always shown at the bottom, sorted by active profile relevance.
-
-| Severity | Rule |
-|----------|------|
-| 🔴 Critical | Encoded PowerShell (-enc / -encodedCommand) |
-| 🔴 Critical | Inline Base64 decode (FromBase64String) |
-| 🔴 Critical | Office application spawning shell |
-| 🔴 Critical | Credential dumping (lsass, mimikatz, comsvcs MiniDump) |
-| 🔴 Critical | Process injection patterns |
-| 🔴 Critical | Web server spawning shell (web shell activity) |
-| 🔴 Critical | Forced authentication / NTLM capture tool |
-| 🔴 Critical | Data destruction command pattern |
-| 🟠 High | Scheduled task creation |
-| 🟠 High | WMI remote execution |
-| 🟠 High | Service installation or modification |
-| 🟠 High | LOLBin usage (certutil, mshta, rundll32, regsvr32, wscript, bitsadmin) |
-| 🟠 High | PowerShell download cradle |
-| 🟠 High | Remote access software detected (AnyDesk, TeamViewer, ScreenConnect, ngrok) |
-| 🟠 High | BITS job used for download or persistence |
-| 🟠 High | Account creation command detected |
-| 🟠 High | Critical service stopped (backup/AV/database) |
-| 🟠 High | Cloud storage contact (potential exfiltration) |
-| 🟠 High | Execution from suspicious path (%TEMP% / AppData / Public) |
-| 🟠 High | Heavily obfuscated / long command line (>500 chars) |
-| 🟡 Medium | High-port outbound connections (>49151) |
-| 🟡 Medium | Suspicious TLD contact (.xyz, .top, .tk, .ru, .pw, .cc) |
-| 🟡 Medium | Domain trust discovery |
-| 🟡 Medium | Lateral tool transfer via admin share |
-
 ---
 
 ## 🌲 Process Tree
@@ -391,6 +384,18 @@ Always shown at the bottom, sorted by active profile relevance.
 ![Process Tree](screenshots/process-tree.png)
 
 Hierarchical parent/child process view. Click any node for full detail: cmdline, hashes, network events, registry changes. Filter by host or search by process/cmdline/IP. Respects active filters — scoped to your current filtered dataset.
+
+**Defender action type categories:**
+
+| Category | Color | ActionTypes |
+|----------|-------|-------------|
+| Process | 🔴 Red | `ProcessCreated`, `ProcessTerminated` |
+| Network | 🔵 Blue | `NetworkConnectionEvents`, `ConnectionSuccess`, `DnsConnectionInspected` |
+| File | 🟣 Purple | `FileCreated`, `FileModified`, `FileRenamed`, `FileDeleted` |
+| Registry | 🟠 Amber | `RegistryValueSet`, `RegistryKeyCreated`, `RegistryValueDeleted` |
+| Logon | 🩷 Pink | `LogonSuccess`, `LogonFailed` |
+| LSASS | 🔴 Bright Red | `OpenProcessApiCall` against `lsass.exe` — credential access signal |
+| Other | 🟢 Green | All other ActionType strings |
 
 **Chronicle UDM action type categories:**
 
@@ -418,7 +423,7 @@ Hierarchical parent/child process view. Click any node for full detail: cmdline,
 
 ---
 
-## Other Analysis Tools
+## Analysis Toolkit
 
 All tools respect active filters — scoped to your current filtered dataset.
 
@@ -729,11 +734,11 @@ sift/
 
 ```bash
 # Build all variants
-python build.py
+python3 build.py
 
 # Build a single variant by folder name
-python build.py windows
-python build.py chronicle-defender
+python3 build.py windows
+python3 build.py chronicle-defender
 ```
 
 Each built file in `dist/` is fully self-contained — all JS and CSS is inlined. Send just the HTML file, nothing else is needed.
@@ -798,13 +803,13 @@ Example — the generic variant:
 }
 ```
 
-2. Run `python build.py my-variant`
+2. Run `python3 build.py my-variant`
 
 ### Adding a new data source
 
 1. Create `src/modules/splunk.js` with detection and UI code
 2. Add it to any variant manifest under `"modules"`
-3. Run `python build.py`
+3. Run `python3 build.py`
 
 ### Header name override
 
