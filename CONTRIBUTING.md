@@ -66,7 +66,7 @@ See the [project structure section](README.md#project-structure) in the README.
 
 ## Where to log changes
 
-User-facing changes go in `CHANGELOG.md`. Internal dev notes go in `notes/dev-log.md`.
+User-facing changes go in `CHANGELOG.md`.
 
 ## Cutting a release (maintainers)
 
