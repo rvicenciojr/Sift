@@ -4,6 +4,10 @@ User-facing changes. Detailed dev notes live in [`notes/dev-log.md`](notes/dev-l
 
 ## [Unreleased]
 
+## [1.0.0] — 2026-05-27
+
+First production-ready release. [GitHub release](https://github.com/rvicenciojr/Sift-ThreatHuntingInvestigator/releases/tag/v1.0.0).
+
 ### Added
 - Pre-loaded threat-hunting highlight terms (powershell, mimikatz, rundll32, certutil, mshta, encoded, base64)
 - Chronicle severity auto-highlights on first load
@@ -13,6 +17,9 @@ User-facing changes. Detailed dev notes live in [`notes/dev-log.md`](notes/dev-l
 - Custom Field cards (pin any CSV column as a frequency card)
 - HEARTH-style competing hypothesis prompts in `/hunt` workflows (via separate MCP server)
 - Chronicle UDM Process Tree support with action type categories
+- Sample CSVs for Defender and Windows Security event logs (in `examples/`)
+- LICENSE (MIT), CHANGELOG, CONTRIBUTING, SECURITY companion files
+- Full README documentation: TOC, Quick Start, Privacy, Performance, FAQ, screenshots for all major features
 
 ### Fixed
 - Overview chart-area lists now cap at 100 rows with "…and N more" footer (previously could render 8000+ DOM nodes)

@@ -10,13 +10,15 @@ A browser-based, offline investigation tool for security analysts and IT profess
 
 ## Quick start
 
-1. Download the right `.html` file from [`dist/`](dist/) — most users want `hunt-investigator.html`
+1. Grab the right `.html` file from the [latest release](https://github.com/rvicenciojr/Sift-ThreatHuntingInvestigator/releases/latest) — most users want **`hunt-investigator.html`**
 2. Open it in **Chrome** or **Microsoft Edge**
 3. Drag your CSV (or `.evtx`) onto the page
 
 That's it. No install, no server, no setup.
 
-> **Want to try before loading real data?** Drop [`examples/sample-defender.csv`](examples/sample-defender.csv) onto `hunt-investigator.html` — a fabricated attacker scenario that exercises the Overview, Process Tree, Network Map, and TTP detection.
+> **Want to try before loading real data?** Drop one of the sample files onto the matching tool:
+> - [`examples/sample-defender.csv`](examples/sample-defender.csv) → `hunt-investigator.html` — fabricated Defender attack chain
+> - [`examples/sample-windows-security.csv`](examples/sample-windows-security.csv) → `sift-windows.html` — fabricated Windows Security event log with spray, lateral movement, account creation, credential dump
 
 ## Why Sift
 
