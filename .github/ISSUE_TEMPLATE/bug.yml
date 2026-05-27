@@ -1,0 +1,71 @@
+name: Bug report
+description: Something in Sift isn't behaving the way the docs / README say it should
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for taking the time to report this. **Please do not paste real log data, hostnames, usernames, or customer IOCs.** If a data shape matters, sanitise it down to the minimum repro.
+
+  - type: input
+    id: variant
+    attributes:
+      label: Sift variant
+      description: Which HTML file are you using?
+      placeholder: e.g. hunt-investigator.html, sift-windows.html, sift-generic.html
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Version / release tag
+      description: From the GitHub release you downloaded, or `unknown` if built locally
+      placeholder: v1.0.0
+    validations:
+      required: true
+
+  - type: dropdown
+    id: browser
+    attributes:
+      label: Browser
+      options:
+        - Chrome
+        - Microsoft Edge
+        - Other (will not be supported but please mention)
+    validations:
+      required: true
+
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened
+      description: What did you do and what did Sift do?
+      placeholder: |
+        1. Opened sift-windows.html in Chrome
+        2. Dragged my Security.evtx file onto the page
+        3. Expected to see the Overview render; instead got an empty table
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: What you expected to happen
+    validations:
+      required: true
+
+  - type: textarea
+    id: data-shape
+    attributes:
+      label: Data shape (sanitised)
+      description: |
+        If the bug depends on the input file, paste 2-3 sanitised rows showing the column names and example values. Replace anything identifying with placeholders.
+      render: text
+
+  - type: textarea
+    id: console
+    attributes:
+      label: Browser console output
+      description: If anything is logged when you reproduce the bug, paste it here. (F12 → Console)
+      render: text

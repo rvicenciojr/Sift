@@ -19,7 +19,8 @@ That's it. No install, no server, no setup.
 
 > **Want to try before loading real data?** Drop one of the sample files onto the matching tool:
 > - [`examples/sample-defender.csv`](examples/sample-defender.csv) → `hunt-investigator.html` — fabricated Defender attack chain
-> - [`examples/sample-windows-security.csv`](examples/sample-windows-security.csv) → `sift-windows.html` — fabricated Windows Security event log with spray, lateral movement, account creation, credential dump
+> - [`examples/sample-chronicle.csv`](examples/sample-chronicle.csv) → `sift-chronicle.html` or `hunt-investigator.html` — same scenario in UDM format with severity auto-highlights
+> - [`examples/sample-windows-security.csv`](examples/sample-windows-security.csv) → `sift-windows.html` — Windows Security event log with spray, lateral movement, account creation, credential dump
 
 ## Why Sift
 
@@ -213,6 +214,8 @@ The **＋ Field** button in the overview header lets you pin any column as a fre
 
 These appear automatically when Security event logs are loaded:
 
+![Windows Security overview — Logon Analysis, Spray Detection, Authentication Events, Account Activity, RDP Sessions](screenshots/windows-security-overview.png)
+
 | Card | Shows | EventIDs |
 |------|-------|---------|
 | **Logon Analysis** | Success vs failed counts, logon type breakdown, failed ratio | 4624 / 4625 |
@@ -221,6 +224,10 @@ These appear automatically when Security event logs are loaded:
 | **Authentication Events** | Kerberos TGT requests, service tickets, pre-auth failures | 4768/4769/4770/4771/4776 |
 | **Network Logons** | Type 3/10 logons — lateral movement paths | 4624 with LogonType 3 or 10 |
 | **RDP Sessions** | RDP connect, reconnect, logoff timeline | 21/22/23/24/25/131 |
+
+The **Attack Chain** card (also Windows Security only) places events in chronological order across attack stages — Initial Access → Execution → Credential Access → Lateral Movement → Persistence — so the kill chain reads left-to-right:
+
+![Attack Chain card — events grouped chronologically by stage](screenshots/attack-chain.png)
 
 ### Notable Indicators
 
@@ -316,13 +323,15 @@ Detects and decodes:
 
 ### 📊 Timeline
 
-![Timeline + Bytes charts](screenshots/timeline-bytes.png)
+![Timeline — event distribution with quick-pick time ranges](screenshots/timeline.png)
 
 Event distribution chart. Drag to select a time range — table updates on release. Double-click to reset. Quick-picks: 1h · 6h · 12h · 1d · 1w · 1mo.
 
 ### 📈 Bytes Chart
 
-Network traffic volume (bytes in/out per time bucket). Requires bytes columns in the export.
+![Bytes Chart — inbound/outbound traffic volume per day](screenshots/bytes-chart.png)
+
+Network traffic volume (bytes in/out per time bucket). Requires bytes columns in the export. Pick the inbound and outbound columns from the dropdowns — Sift auto-detects most standard naming conventions.
 
 ### 🔨 Query Builder
 
@@ -396,6 +405,8 @@ Add, edit, or delete terms freely. Up to 9 colours are available. Use **💾 Sav
 **Severity auto-highlights** *(Chronicle only)* — when Chronicle data is detected, Sift automatically applies highlights by `security_result.severity`: CRITICAL rows red, HIGH amber, MEDIUM yellow, LOW green. This applies once on first load — you can edit or remove these rules like any other highlight.
 
 **🎯 Show highlighted** — toggle on to filter the table to rows that match any highlight rule. Quick way to focus only on flagged events without writing a multi-row filter.
+
+![Table with highlight rules applied — suspicious rows colour-coded for fast scanning](screenshots/table-highlighted.png)
 
 ---
 

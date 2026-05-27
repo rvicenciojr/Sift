@@ -67,3 +67,12 @@ See the [project structure section](README.md#project-structure) in the README.
 ## Where to log changes
 
 User-facing changes go in `CHANGELOG.md`. Internal dev notes go in `notes/dev-log.md`.
+
+## Cutting a release (maintainers)
+
+1. Move the `[Unreleased]` section in `CHANGELOG.md` to a new dated version section
+2. Commit and push to `main` — the build workflow runs
+3. Tag: `git tag -a vX.Y.Z -m "vX.Y.Z" && git push origin vX.Y.Z`
+4. The release workflow auto-builds all 7 dist files and creates a **draft** release with auto-generated notes — review on GitHub and click Publish
+
+No manual file uploads needed.

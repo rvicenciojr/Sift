@@ -1,0 +1,43 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Build all variants
+        run: python3 build.py
+
+      - name: List built files
+        run: ls -lh dist/
+
+      - name: Create GitHub Release with dist files
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="${GITHUB_REF#refs/tags/}"
+          gh release create "$TAG" \
+            dist/hunt-investigator.html \
+            dist/sift-generic.html \
+            dist/sift-windows.html \
+            dist/sift-defender.html \
+            dist/sift-chronicle.html \
+            dist/sift-defender-windows.html \
+            dist/sift-chronicle-windows.html \
+            --draft \
+            --generate-notes \
+            --title "$TAG"

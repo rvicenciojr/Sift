@@ -26,6 +26,18 @@ A small Microsoft Defender for Endpoint Advanced Hunting export (~25 rows) showi
 
 **All data in this file is fabricated.** Hostnames, usernames, IPs, hashes, and URLs are placeholder values. The IPs `198.51.100.42` and `203.0.113.55` are from RFC 5737 reserved documentation ranges. The hashes are not real file hashes.
 
+## sample-chronicle.csv
+
+A small Google Chronicle / SecOps UDM export (~22 events) showing the same Defender attacker scenario translated into UDM event types and field names:
+
+- `PROCESS_LAUNCH`, `NETWORK_CONNECTION`, `FILE_CREATION`, `REGISTRY_VALUE_SET` event types
+- UDM field names — `principal.process.command_line`, `target.ip`, `target.registry.registry_key`, etc.
+- `security_result.severity` populated (INFORMATIONAL through CRITICAL) so the Severity card lights up + severity auto-highlights kick in
+
+Use with `dist/sift-chronicle.html` or `dist/hunt-investigator.html` (the combined Chronicle + Defender file).
+
+The attack chain is the same as the Defender sample: Word document → encoded PowerShell → C2 beacon → discovery → LSASS dump → persistence (scheduled task + registry Run key) → second-stage download via certutil → second host compromised. The registry write demonstrates the Registry card / Registry process tree action category.
+
 ## sample-windows-security.csv
 
 A small Windows Security Event Log export (~53 events) showing a fabricated full-spectrum attack chain that exercises every Windows Security-specific card in Sift:

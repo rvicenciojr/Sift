@@ -1,0 +1,48 @@
+name: Feature request
+description: Suggest a new feature or improvement
+labels: ["enhancement"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Sift is intentionally focused. Before opening this, check the [CONTRIBUTING.md](../CONTRIBUTING.md) "what's a good fit" section.
+
+        Good fits: new data sources, more MITRE technique signatures, performance improvements, UX polish.
+        Not a fit: external network calls, server-side functionality, runtime dependencies.
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: What problem does this solve?
+      description: Describe the situation that makes you want this feature. "I want X" is less useful than "When I'm doing Y, I keep needing to manually Z."
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: What would you want Sift to do? Be specific if you have an idea — UI mockup, behaviour description, or query example.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Workarounds you've tried, other tools that do this, ways to solve the underlying problem without this feature
+
+  - type: dropdown
+    id: scope
+    attributes:
+      label: Which variant(s) would this affect?
+      multiple: true
+      options:
+        - hunt-investigator (Chronicle + Defender)
+        - sift-windows (Windows Security / .evtx)
+        - sift-defender
+        - sift-chronicle
+        - sift-generic
+        - All variants
+    validations:
+      required: true
