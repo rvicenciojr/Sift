@@ -1,5 +1,6 @@
 # Sift — Threat Hunting & Incident Response Investigation
 
+[![Build](https://github.com/rvicenciojr/Sift-ThreatHuntingInvestigator/actions/workflows/build.yml/badge.svg)](https://github.com/rvicenciojr/Sift-ThreatHuntingInvestigator/actions/workflows/build.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Latest release](https://img.shields.io/github/v/release/rvicenciojr/Sift-ThreatHuntingInvestigator?include_prereleases&sort=semver)](https://github.com/rvicenciojr/Sift-ThreatHuntingInvestigator/releases)
 [![Runs offline](https://img.shields.io/badge/runs-offline-2dd4bf)](#privacy--security)
