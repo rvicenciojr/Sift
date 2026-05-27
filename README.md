@@ -51,14 +51,19 @@ If a file feels sluggish, narrow the export at the source (Chronicle/Defender qu
 
 ## Contents
 
+**Core log viewer** — what most users come for:
 - [For analysts — getting started](#for-analysts--getting-started)
-- [Overview Dashboard](#overview-dashboard)
-- [🌲 Process Tree](#-process-tree)
-- [Other Analysis Tools](#other-analysis-tools)
 - [Table view](#table-view)
 - [Filter Bar](#filter-bar)
 - [Right-Click Context Menu](#right-click-context-menu)
 - [Keyboard & Mouse](#keyboard--mouse)
+
+**Threat hunting layer** — adaptive dashboard + analysis tools on top of the viewer:
+- [Overview Dashboard](#overview-dashboard)
+- [🌲 Process Tree](#-process-tree)
+- [Other Analysis Tools](#other-analysis-tools)
+
+**Reference**:
 - [Typical investigation workflow](#typical-investigation-workflow)
 - [FAQ & troubleshooting](#faq--troubleshooting)
 - [Supported log sources](#supported-log-sources)
@@ -112,6 +117,113 @@ Click any row in the table (or the **→** chevron) to open the detail view. Use
 
 ---
 
+## Table view
+
+![Table view](screenshots/table.png)
+
+The main data grid — sortable columns, row-level highlights, filter controls in the bar above. The pagination bar (row count, Export, navigation) is only visible in table view — it hides automatically when the Overview is open and returns when you leave it. Navigation controls only appear when data spans multiple pages.
+
+### Cell Selection & Copy
+
+- **Click and drag** across cells to select a range (Excel-style blue highlight)
+- **Shift+click** extends the selection from the starting point
+- **Ctrl/Cmd+C** copies the selected cells as tab-separated values (paste into Excel)
+- **Right-click** on selected cells → `Copy selection` (TSV) or `Copy selection as JSON`
+
+---
+
+## Filter Bar
+
+![Filter bar — add row, clear all, columns, presets, highlights, filters enabled toggle](screenshots/filter-bar.png)
+
+| Control | What it does |
+|---------|-------------|
+| ＋ Add filter row | Adds a condition with column, match mode, and value |
+| Match modes | contains · does not contain · equals · starts with · ends with · matches regex · not regex |
+| AND / OR | Connector between filter rows — combine conditions any way you need |
+| ✕ Clear all | Removes all filters and resets to full dataset |
+| ⊞ Columns | Show/hide columns, drag ⠿ grip to reorder |
+| ⭐ Presets | Save and reload named filter configurations |
+| 🎨 Highlights | Colour-code rows by term — see Highlights section below |
+| ☑ Filters enabled | Temporarily disable all filters without deleting them |
+| 🎯 TTP chip | Auto-added when you click a TTP in the Overview |
+
+**Regex filters:** If a regex pattern is invalid, the filter input shows a red border and tooltip with the error. The filter passes all rows rather than silently hiding everything.
+
+**OR logic:** Multiple filter rows with OR connectors correctly combine — blank filter rows are excluded from evaluation so they don't interfere with OR results.
+
+**Column reordering:** Right-click any column header → Move left / Move right / Move to first / Move to last. Or drag column headers directly.
+
+**Per-tab state:** Filter rows, column filters, timestamp range, highlights, and investigation profile are all saved per tab and restored when switching back.
+
+### TTP chip
+
+When you click a technique in the Overview (e.g. T1059.001 PowerShell from the TTP Selector or a Notable Indicator), Sift adds a yellow chip to the filter bar: `🎯 T1059.001 · PowerShell`. This applies the detection signature for that technique as a filter — the table shows only the rows that matched it. Click the × on the chip to remove it and return to the full dataset.
+
+### Highlights
+
+Highlights colour-code matching rows so anomalies pop out as you scroll. Open the panel with **🎨 Highlights**.
+
+**Pre-loaded threat-hunting terms** — Sift ships with these defaults so the most common suspicious strings light up immediately on first load:
+
+| Term | Colour |
+|---|---|
+| `powershell`, `encoded`, `base64`, `mimikatz` | 🔴 Red |
+| `rundll32`, `mshta` | 🟠 Orange |
+| `certutil` | 🟡 Yellow |
+
+Add, edit, or delete terms freely. Up to 9 colours are available. Use **💾 Save highlights** to persist your custom set across sessions — they live in browser localStorage. **↺ Reset** restores the pre-loaded defaults.
+
+**Severity auto-highlights** *(Chronicle only)* — when Chronicle data is detected, Sift automatically applies highlights by `security_result.severity`: CRITICAL rows red, HIGH amber, MEDIUM yellow, LOW green. This applies once on first load — you can edit or remove these rules like any other highlight.
+
+**🎯 Show highlighted** — toggle on to filter the table to rows that match any highlight rule. Quick way to focus only on flagged events without writing a multi-row filter.
+
+![Table with highlight rules applied — suspicious rows colour-coded for fast scanning](screenshots/table-highlighted.png)
+
+---
+
+## Right-Click Context Menu
+
+![Right-click context menu](screenshots/context-menu.png)
+
+Available everywhere — table cells, overview rows, context card fields, process tree nodes, network map nodes, script decoder entries.
+
+| Option | Description |
+|--------|-------------|
+| Filter by this value | Adds a contains filter |
+| Exclude this value | Adds a does-not-contain filter |
+| Copy value | Copies raw value |
+| Copy row as JSON | Full row as formatted JSON |
+| Copy Chronicle UDM query | Schema-accurate UDM search |
+| Copy Defender KQL | Schema-accurate Advanced Hunting KQL |
+| Copy Sentinel KQL | SecurityEvent KQL (Windows Security logs) |
+| Add to Query Builder | Adds to the floating multi-IOC panel *(security variants only)* |
+| Copy selection | Copies selected cells as tab-separated values |
+| Copy selection as JSON | Copies selected cells as JSON |
+| VirusTotal | Opens VT search for IPs, hashes, domains, URLs |
+| Shodan | Opens Shodan for IPs |
+| CyberChef | Opens CyberChef with value pre-loaded |
+
+---
+
+## Keyboard & Mouse
+
+| Action | Where | Result |
+|--------|-------|--------|
+| Escape | Anywhere | Close open modal / sidebar / picker |
+| Arrow left / right | Row detail open | Navigate to previous / next row |
+| Ctrl/Cmd+C | Cells selected | Copy as tab-separated values |
+| Hover list + type letters | Overview scrollable lists | Typeahead jump to first matching item |
+| Hover TTP Selector + type | Overview TTP panel | Keystrokes route to search box |
+| Drag on timeline | Timeline chart | Select time range |
+| Double-click on timeline | Timeline chart | Clear time range filter |
+| Drag column header | Table header | Reorder column |
+| Right-click column header | Table header | Move / Sort / Hide |
+| Click + drag in table | Table cells | Select a range of cells (Excel-style) |
+| Shift + click | Table cells | Extend selection |
+
+---
+
 ## Overview Dashboard
 
 Open with **📋 Overview** in the analysis toolbar — this is the main starting point after loading data.
@@ -158,9 +270,21 @@ The **"Investigating: ▾"** dropdown reshapes the dashboard for a specific inve
 
 ![Investigating dropdown — MITRE tactics](screenshots/investigating-dropdown.png)
 
-**Technique profiles** (appear only when detected in your data):
+**Technique profiles** — appear in the Investigating dropdown only when detected in your data. Grouped by tactic:
 
-T1003.001 LSASS Dump · T1003.002 SAM Dump · T1003.003 NTDS Dump · T1003.006 DCSync · T1021.001 RDP · T1021.002 SMB · T1021.006 WinRM · T1027 Obfuscation · T1047 WMI · T1053.005 Scheduled Task · T1055.001 DLL Injection · T1055.012 Process Hollowing · T1059.001 PowerShell · T1059.003 Cmd Shell · T1059.005 VBScript · T1059.007 JavaScript · T1069.001/002 Group Discovery · T1070.001 Clear Event Logs · T1071 C2 · T1082 System Info Discovery · T1087.001/002 Account Discovery · T1105 Ingress Tool Transfer · T1110.003 Password Spraying · T1136.001/002 Create Account · T1187 Forced Authentication · T1197 BITS Jobs · T1204.002 Malicious File · T1218.011 Rundll32 · T1219 Remote Access Software · T1482 Domain Trust Discovery · T1485 Data Destruction · T1486 Ransomware · T1489 Service Stop · T1490 Inhibit Recovery · T1496 Cryptomining · T1505.003 Web Shell · T1529 System Shutdown · T1543.003 Windows Service · T1546.003 WMI Subscription · T1547.001 Registry Run Keys · T1548.002 Bypass UAC · T1550.002 Pass the Hash · T1550.003 Pass the Ticket · T1552.001/002 Credentials · T1555.003 Browser Creds · T1558.001 Golden Ticket · T1558.003 Kerberoasting · T1560.001 Archive via Utility · T1562 Impair Defenses · T1562.001 Disable Security Tools · T1567.002 Cloud Storage Exfil · T1569.002 Service Execution · T1570 Lateral Tool Transfer · T1571 Non-Standard Port · T1572 Protocol Tunneling
+| Tactic | Detected techniques |
+|---|---|
+| **Execution** | T1047 WMI · T1053.005 Scheduled Task · T1059.001 PowerShell · T1059.003 Cmd Shell · T1059.005 VBScript · T1059.007 JavaScript · T1204.002 Malicious File · T1569.002 Service Execution |
+| **Persistence** | T1136.001/002 Create Account · T1197 BITS Jobs · T1505.003 Web Shell · T1543.003 Windows Service · T1546.003 WMI Subscription · T1547.001 Registry Run Keys |
+| **Privilege Escalation** | T1548.002 Bypass UAC |
+| **Defense Evasion** | T1027 Obfuscation · T1055.001 DLL Injection · T1055.012 Process Hollowing · T1070.001 Clear Event Logs · T1218.011 Rundll32 · T1562 Impair Defenses · T1562.001 Disable Security Tools |
+| **Credential Access** | T1003.001 LSASS Dump · T1003.002 SAM Dump · T1003.003 NTDS Dump · T1003.006 DCSync · T1110.003 Password Spraying · T1187 Forced Authentication · T1552.001/002 Credentials · T1555.003 Browser Creds · T1558.001 Golden Ticket · T1558.003 Kerberoasting |
+| **Discovery** | T1069.001/002 Group Discovery · T1082 System Info Discovery · T1087.001/002 Account Discovery · T1482 Domain Trust Discovery |
+| **Lateral Movement** | T1021.001 RDP · T1021.002 SMB · T1021.006 WinRM · T1550.002 Pass the Hash · T1550.003 Pass the Ticket · T1570 Lateral Tool Transfer |
+| **Collection** | T1560.001 Archive via Utility |
+| **Command and Control** | T1071 C2 · T1105 Ingress Tool Transfer · T1219 Remote Access Software · T1571 Non-Standard Port · T1572 Protocol Tunneling |
+| **Exfiltration** | T1567.002 Cloud Storage Exfil |
+| **Impact** | T1485 Data Destruction · T1486 Ransomware · T1489 Service Stop · T1490 Inhibit Recovery · T1496 Cryptomining · T1529 System Shutdown |
 
 When you pick a technique profile, a **TTP Context Card** appears at the top of the Overview showing the per-event detail rows for that technique — host, user, process, command line, remote IP, port, and any other fields relevant to that TTP. Click any field to filter by it, right-click for the full context menu.
 
@@ -342,113 +466,6 @@ Floating draggable panel. Right-click any value → "Add to Query Builder" to ac
 - **Defender** → Advanced Hunting KQL
 - **Chronicle** → UDM search query
 - **Windows Security** → Sentinel SecurityEvent KQL
-
----
-
-## Table view
-
-![Table view](screenshots/table.png)
-
-The main data grid — sortable columns, row-level highlights, filter controls in the bar above. The pagination bar (row count, Export, navigation) is only visible in table view — it hides automatically when the Overview is open and returns when you leave it. Navigation controls only appear when data spans multiple pages.
-
-### Cell Selection & Copy
-
-- **Click and drag** across cells to select a range (Excel-style blue highlight)
-- **Shift+click** extends the selection from the starting point
-- **Ctrl/Cmd+C** copies the selected cells as tab-separated values (paste into Excel)
-- **Right-click** on selected cells → `Copy selection` (TSV) or `Copy selection as JSON`
-
----
-
-## Filter Bar
-
-![Filter bar — add row, clear all, columns, presets, highlights, filters enabled toggle](screenshots/filter-bar.png)
-
-| Control | What it does |
-|---------|-------------|
-| ＋ Add filter row | Adds a condition with column, match mode, and value |
-| Match modes | contains · does not contain · equals · starts with · ends with · matches regex · not regex |
-| AND / OR | Connector between filter rows — combine conditions any way you need |
-| ✕ Clear all | Removes all filters and resets to full dataset |
-| ⊞ Columns | Show/hide columns, drag ⠿ grip to reorder |
-| ⭐ Presets | Save and reload named filter configurations |
-| 🎨 Highlights | Colour-code rows by term — see Highlights section below |
-| ☑ Filters enabled | Temporarily disable all filters without deleting them |
-| 🎯 TTP chip | Auto-added when you click a TTP in the Overview |
-
-**Regex filters:** If a regex pattern is invalid, the filter input shows a red border and tooltip with the error. The filter passes all rows rather than silently hiding everything.
-
-**OR logic:** Multiple filter rows with OR connectors correctly combine — blank filter rows are excluded from evaluation so they don't interfere with OR results.
-
-**Column reordering:** Right-click any column header → Move left / Move right / Move to first / Move to last. Or drag column headers directly.
-
-**Per-tab state:** Filter rows, column filters, timestamp range, highlights, and investigation profile are all saved per tab and restored when switching back.
-
-### TTP chip
-
-When you click a technique in the Overview (e.g. T1059.001 PowerShell from the TTP Selector or a Notable Indicator), Sift adds a yellow chip to the filter bar: `🎯 T1059.001 · PowerShell`. This applies the detection signature for that technique as a filter — the table shows only the rows that matched it. Click the × on the chip to remove it and return to the full dataset.
-
-### Highlights
-
-Highlights colour-code matching rows so anomalies pop out as you scroll. Open the panel with **🎨 Highlights**.
-
-**Pre-loaded threat-hunting terms** — Sift ships with these defaults so the most common suspicious strings light up immediately on first load:
-
-| Term | Colour |
-|---|---|
-| `powershell`, `encoded`, `base64`, `mimikatz` | 🔴 Red |
-| `rundll32`, `mshta` | 🟠 Orange |
-| `certutil` | 🟡 Yellow |
-
-Add, edit, or delete terms freely. Up to 9 colours are available. Use **💾 Save highlights** to persist your custom set across sessions — they live in browser localStorage. **↺ Reset** restores the pre-loaded defaults.
-
-**Severity auto-highlights** *(Chronicle only)* — when Chronicle data is detected, Sift automatically applies highlights by `security_result.severity`: CRITICAL rows red, HIGH amber, MEDIUM yellow, LOW green. This applies once on first load — you can edit or remove these rules like any other highlight.
-
-**🎯 Show highlighted** — toggle on to filter the table to rows that match any highlight rule. Quick way to focus only on flagged events without writing a multi-row filter.
-
-![Table with highlight rules applied — suspicious rows colour-coded for fast scanning](screenshots/table-highlighted.png)
-
----
-
-## Right-Click Context Menu
-
-![Right-click context menu](screenshots/context-menu.png)
-
-Available everywhere — table cells, overview rows, context card fields, process tree nodes, network map nodes, script decoder entries.
-
-| Option | Description |
-|--------|-------------|
-| Filter by this value | Adds a contains filter |
-| Exclude this value | Adds a does-not-contain filter |
-| Copy value | Copies raw value |
-| Copy row as JSON | Full row as formatted JSON |
-| Copy Chronicle UDM query | Schema-accurate UDM search |
-| Copy Defender KQL | Schema-accurate Advanced Hunting KQL |
-| Copy Sentinel KQL | SecurityEvent KQL (Windows Security logs) |
-| Add to Query Builder | Adds to the floating multi-IOC panel *(security variants only)* |
-| Copy selection | Copies selected cells as tab-separated values |
-| Copy selection as JSON | Copies selected cells as JSON |
-| VirusTotal | Opens VT search for IPs, hashes, domains, URLs |
-| Shodan | Opens Shodan for IPs |
-| CyberChef | Opens CyberChef with value pre-loaded |
-
----
-
-## Keyboard & Mouse
-
-| Action | Where | Result |
-|--------|-------|--------|
-| Escape | Anywhere | Close open modal / sidebar / picker |
-| Arrow left / right | Row detail open | Navigate to previous / next row |
-| Ctrl/Cmd+C | Cells selected | Copy as tab-separated values |
-| Hover list + type letters | Overview scrollable lists | Typeahead jump to first matching item |
-| Hover TTP Selector + type | Overview TTP panel | Keystrokes route to search box |
-| Drag on timeline | Timeline chart | Select time range |
-| Double-click on timeline | Timeline chart | Clear time range filter |
-| Drag column header | Table header | Reorder column |
-| Right-click column header | Table header | Move / Sort / Hide |
-| Click + drag in table | Table cells | Select a range of cells (Excel-style) |
-| Shift + click | Table cells | Extend selection |
 
 ---
 
