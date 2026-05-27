@@ -1,5 +1,9 @@
 # Sift — Threat Hunting & Incident Response Investigation
 
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
+[![Latest release](https://img.shields.io/github/v/release/rvicenciojr/Sift-ThreatHuntingInvestigator?include_prereleases&sort=semver)](https://github.com/rvicenciojr/Sift-ThreatHuntingInvestigator/releases)
+[![Runs offline](https://img.shields.io/badge/runs-offline-2dd4bf)](#privacy--security)
+
 A browser-based, offline investigation tool for security analysts and IT professionals. Load a log file, get an adaptive MITRE ATT&CK-driven dashboard, process tree, network map, script decoder, and query builder — all without installing anything.
 
 ![Sift overview dashboard](screenshots/overview.png)
@@ -11,6 +15,8 @@ A browser-based, offline investigation tool for security analysts and IT profess
 3. Drag your CSV (or `.evtx`) onto the page
 
 That's it. No install, no server, no setup.
+
+> **Want to try before loading real data?** Drop [`examples/sample-defender.csv`](examples/sample-defender.csv) onto `hunt-investigator.html` — a fabricated attacker scenario that exercises the Overview, Process Tree, Network Map, and TTP detection.
 
 ## Why Sift
 
