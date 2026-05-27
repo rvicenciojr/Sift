@@ -2,9 +2,57 @@
 
 A browser-based, offline investigation tool for security analysts and IT professionals. Load a log file, get an adaptive MITRE ATT&CK-driven dashboard, process tree, network map, script decoder, and query builder — all without installing anything.
 
-**No installation. No server. No data leaves your machine.**
-
 ![Sift overview dashboard](screenshots/overview.png)
+
+## Quick start
+
+1. Download the right `.html` file from [`dist/`](dist/) — most users want `hunt-investigator.html`
+2. Open it in **Chrome** or **Microsoft Edge**
+3. Drag your CSV (or `.evtx`) onto the page
+
+That's it. No install, no server, no setup.
+
+## Why Sift
+
+- **Adaptive** — auto-detects Defender, Chronicle, or Windows Security and unlocks only the features that match
+- **MITRE ATT&CK-aware** — runs technique detection signatures over your data, surfaces which tactics fired and where
+- **Built for triage** — click anything to filter, every card stays in sync, jump to a filtered table in one click
+- **Analyst-friendly tooling** — process tree, network map with beaconing detection, PowerShell/base64 decoder, multi-IOC query builder
+- **Fully offline** — single HTML file, no install, no telemetry, runs entirely in your browser
+
+## Privacy & security
+
+Sift is **fully air-gapped capable**. It is a single static HTML file that runs entirely in your browser. There is no server component, no analytics, no telemetry, and no external resource loading at runtime — the file is self-contained with all JavaScript and CSS inlined. Your log data never leaves the machine you opened the file on, and the source is fully open for audit at [github.com/rvicenciojr/Sift-ThreatHuntingInvestigator](https://github.com/rvicenciojr/Sift-ThreatHuntingInvestigator).
+
+## Performance & limits
+
+Sift parses CSVs in a web worker so the UI stays responsive on large files. Practical sizing guidance:
+
+| Rows | Experience |
+|---|---|
+| Under 100k | Instant load, all features snappy |
+| 100k – 500k | Good. Initial parse ~5–15 s, overview ~2–4 s. Process Tree and Network Map work well |
+| 500k – 1M | Workable. Parse 15–40 s. Consider filtering before opening heavy tools |
+| 1M+ | Possible but slow. Browser tab memory can become the bottleneck — split large exports by host/time window first |
+
+If a file feels sluggish, narrow the export at the source (Chronicle/Defender query) before loading rather than loading everything and filtering in Sift.
+
+---
+
+## Contents
+
+- [For analysts — getting started](#for-analysts--getting-started)
+- [Overview Dashboard](#overview-dashboard)
+- [🌲 Process Tree](#-process-tree)
+- [Other Analysis Tools](#other-analysis-tools)
+- [Table view](#table-view)
+- [Filter Bar](#filter-bar)
+- [Right-Click Context Menu](#right-click-context-menu)
+- [Keyboard & Mouse](#keyboard--mouse)
+- [Typical investigation workflow](#typical-investigation-workflow)
+- [FAQ & troubleshooting](#faq--troubleshooting)
+- [Supported log sources](#supported-log-sources)
+- [For developers — building and modifying](#for-developers--building-and-modifying)
 
 ---
 
@@ -33,6 +81,24 @@ That's it. One file, nothing else needed. Works completely offline.
 ![Landing page](screenshots/landing.png)
 
 > **Supported browsers:** Chrome or Microsoft Edge (Chromium). Not compatible with Safari or Internet Explorer.
+
+### Working with multiple files (Tabs)
+
+Drop a second file onto Sift and it opens in a new tab. The tab bar appears at the top of the page once you have more than one. Each tab keeps its own data, filters, column visibility, timestamp range, highlights, and investigation profile — switching tabs is instant. Close a tab with × on the tab itself.
+
+By default each tab is isolated. Toggle **Share filters & highlights across tabs** in the filter bar if you want one filter set to apply everywhere — useful when triaging the same IOC across several exports.
+
+### Toolbar & View settings (⚙ View)
+
+The **⚙ View** button (top-right of the header) opens a small settings panel:
+
+| Setting | Effect |
+|---|---|
+| **Detail view** | Toggles between **Sidebar** (row detail opens as a side panel — table stays visible) and **Modal** (row detail opens centered, full focus). Sidebar is the default and recommended for triage. |
+| **Sidebar panel** | When in Sidebar mode, expands/collapses the panel so it doesn't take screen real estate when not needed. |
+| **Theme** | Light / dark. Picks up your OS preference on first load and remembers your choice. |
+
+Click any row in the table (or the **→** chevron) to open the detail view. Use arrow keys ← / → to navigate row-by-row without closing it.
 
 ---
 
@@ -272,12 +338,13 @@ The main data grid — sortable columns, row-level highlights, filter controls i
 |---------|-------------|
 | ＋ Add filter row | Adds a condition with column, match mode, and value |
 | Match modes | contains · does not contain · equals · starts with · ends with · matches regex · not regex |
+| AND / OR | Connector between filter rows — combine conditions any way you need |
 | ✕ Clear all | Removes all filters and resets to full dataset |
 | ⊞ Columns | Show/hide columns, drag ⠿ grip to reorder |
 | ⭐ Presets | Save and reload named filter configurations |
-| 🎨 Highlights | Colour-code rows by term (9 colours) |
+| 🎨 Highlights | Colour-code rows by term — see Highlights section below |
 | ☑ Filters enabled | Temporarily disable all filters without deleting them |
-| 🎯 TTP chip | Added when clicking a TTP — shows `T1059.001 · PowerShell` |
+| 🎯 TTP chip | Auto-added when you click a TTP in the Overview |
 
 **Regex filters:** If a regex pattern is invalid, the filter input shows a red border and tooltip with the error. The filter passes all rows rather than silently hiding everything.
 
@@ -286,6 +353,28 @@ The main data grid — sortable columns, row-level highlights, filter controls i
 **Column reordering:** Right-click any column header → Move left / Move right / Move to first / Move to last. Or drag column headers directly.
 
 **Per-tab state:** Filter rows, column filters, timestamp range, highlights, and investigation profile are all saved per tab and restored when switching back.
+
+### TTP chip
+
+When you click a technique in the Overview (e.g. T1059.001 PowerShell from the TTP Selector or a Notable Indicator), Sift adds a yellow chip to the filter bar: `🎯 T1059.001 · PowerShell`. This applies the detection signature for that technique as a filter — the table shows only the rows that matched it. Click the × on the chip to remove it and return to the full dataset.
+
+### Highlights
+
+Highlights colour-code matching rows so anomalies pop out as you scroll. Open the panel with **🎨 Highlights**.
+
+**Pre-loaded threat-hunting terms** — Sift ships with these defaults so the most common suspicious strings light up immediately on first load:
+
+| Term | Colour |
+|---|---|
+| `powershell`, `encoded`, `base64`, `mimikatz` | 🔴 Red |
+| `rundll32`, `mshta` | 🟠 Orange |
+| `certutil` | 🟡 Yellow |
+
+Add, edit, or delete terms freely. Up to 9 colours are available. Use **💾 Save highlights** to persist your custom set across sessions — they live in browser localStorage. **↺ Reset** restores the pre-loaded defaults.
+
+**Severity auto-highlights** *(Chronicle only)* — when Chronicle data is detected, Sift automatically applies highlights by `security_result.severity`: CRITICAL rows red, HIGH amber, MEDIUM yellow, LOW green. This applies once on first load — you can edit or remove these rules like any other highlight.
+
+**🎯 Show highlighted** — toggle on to filter the table to rows that match any highlight rule. Quick way to focus only on flagged events without writing a multi-row filter.
 
 ---
 
@@ -370,6 +459,54 @@ Available everywhere — table cells, overview rows, context card fields, proces
    └── Right-click any value → Copy Defender KQL, Chronicle UDM, or Sentinel KQL
    └── Query Builder accumulates multiple IOCs into a single query
 ```
+
+---
+
+## FAQ & troubleshooting
+
+### My file loads but the Overview is empty / says "no data"
+
+Check that your file actually has rows (CSV header only = no data). If you exported from Defender or Chronicle, confirm the query returned results. If the file has rows but Sift shows nothing, the timestamp column may be in an unsupported format — open the table view and verify the timestamp column has parsable values.
+
+### Some cards are missing from the Overview
+
+Sift only builds cards it has data for. The most common causes:
+
+- **Registry card missing (Defender)** — your Advanced Hunting query didn't include `DeviceRegistryEvents`
+- **Network card missing (Defender)** — query didn't include `DeviceNetworkEvents`
+- **Process Tree button hidden** — no parent process column was detected in the export
+- **Hashes card missing** — no SHA256 / MD5 columns in the export
+- **MITRE coverage shows nothing** — data lacks command lines or action types to evaluate signatures against
+
+For Defender exports, the cards are gated by which Advanced Hunting tables you joined in the query.
+
+### Why doesn't it work in Firefox / Safari?
+
+Sift uses Chromium-specific File System APIs and worker patterns that aren't reliably supported in Firefox or Safari. Use Chrome or Microsoft Edge.
+
+### How do I get this approved by my company?
+
+Show your security team three things: (1) the source is open at [github.com/rvicenciojr/Sift-ThreatHuntingInvestigator](https://github.com/rvicenciojr/Sift-ThreatHuntingInvestigator) under MIT license, (2) the file is a single self-contained HTML — no external network calls at runtime, no install, no telemetry, (3) it can run on an air-gapped workstation. Defensive use only. Audit the source if needed — the dist files inline the same JS that's in `src/`.
+
+### Can I use this with Splunk / Sentinel / Elastic exports?
+
+Yes — use `sift-generic.html`. Sift scans column names and builds whatever cards it has data for. You won't get the threat-hunting intelligence layer (MITRE coverage, process tree, etc.) but you get the overview, timeline, filters, and table view.
+
+### My file is huge and the page is slow
+
+See [Performance & limits](#performance--limits). Filter at the source query before loading — narrowing a Chronicle UDM query by host or time window before export is far faster than loading 5M rows and filtering in Sift.
+
+### My CSV uses comma in field values and everything is misaligned
+
+Sift's parser handles quoted fields per RFC 4180. If your export is malformed (unquoted commas in field values), it won't parse cleanly — re-export with proper CSV quoting, or use a tab-separated file (Sift also handles TSV).
+
+### Can I send the HTML file to a colleague?
+
+Yes. The file in `dist/` is fully self-contained — JS, CSS, and all dependencies are inlined. Send the HTML, nothing else needed. They can open it offline.
+
+### How do I report a bug or request a feature?
+
+Open an issue on [GitHub](https://github.com/rvicenciojr/Sift-ThreatHuntingInvestigator/issues).
 
 ---
 
