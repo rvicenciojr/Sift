@@ -124,6 +124,8 @@ Runs MITRE ATT&CK detection signatures against your data and shows which tactics
 
 Shows all tactics with detected techniques. Click a tactic to expand and see individual techniques with hit counts. When a tactic is selected, only that tactic's techniques are shown. Search by technique ID (T1059) or name (PowerShell).
 
+![TTP Selector — tactics with hit counts](screenshots/ttp-selector.png)
+
 ### Investigation Profiles
 
 The **"Investigating: ▾"** dropdown reshapes the dashboard for a specific investigation type. It has three sections:
@@ -150,9 +152,15 @@ The **"Investigating: ▾"** dropdown reshapes the dashboard for a specific inve
 
 T1003.001 LSASS Dump · T1003.002 SAM Dump · T1003.003 NTDS Dump · T1003.006 DCSync · T1021.001 RDP · T1021.002 SMB · T1021.006 WinRM · T1027 Obfuscation · T1047 WMI · T1053.005 Scheduled Task · T1055.001 DLL Injection · T1055.012 Process Hollowing · T1059.001 PowerShell · T1059.003 Cmd Shell · T1059.005 VBScript · T1059.007 JavaScript · T1069.001/002 Group Discovery · T1070.001 Clear Event Logs · T1071 C2 · T1082 System Info Discovery · T1087.001/002 Account Discovery · T1105 Ingress Tool Transfer · T1110.003 Password Spraying · T1136.001/002 Create Account · T1187 Forced Authentication · T1197 BITS Jobs · T1204.002 Malicious File · T1218.011 Rundll32 · T1219 Remote Access Software · T1482 Domain Trust Discovery · T1485 Data Destruction · T1486 Ransomware · T1489 Service Stop · T1490 Inhibit Recovery · T1496 Cryptomining · T1505.003 Web Shell · T1529 System Shutdown · T1543.003 Windows Service · T1546.003 WMI Subscription · T1547.001 Registry Run Keys · T1548.002 Bypass UAC · T1550.002 Pass the Hash · T1550.003 Pass the Ticket · T1552.001/002 Credentials · T1555.003 Browser Creds · T1558.001 Golden Ticket · T1558.003 Kerberoasting · T1560.001 Archive via Utility · T1562 Impair Defenses · T1562.001 Disable Security Tools · T1567.002 Cloud Storage Exfil · T1569.002 Service Execution · T1570 Lateral Tool Transfer · T1571 Non-Standard Port · T1572 Protocol Tunneling
 
+When you pick a technique profile, a **TTP Context Card** appears at the top of the Overview showing the per-event detail rows for that technique — host, user, process, command line, remote IP, port, and any other fields relevant to that TTP. Click any field to filter by it, right-click for the full context menu.
+
+![TTP Context Card — Non-Standard Port C2 per-event detail](screenshots/ttp-context-card.png)
+
 ### Card Settings — ··· Menu
 
 Every overview card has a **···** button on the far right of the title bar. Click it to open a compact dropdown with two sections:
+
+![Card settings dropdown — Size and View as](screenshots/card-settings-menu.png)
 
 **Size** — controls the card's width in the grid:
 | Option | Width |
@@ -177,6 +185,8 @@ Every overview card has a **···** button on the far right of the title bar. C
 ### Custom Profiles
 
 Click **＋ Build custom profile…** at the bottom of the Investigating dropdown to open the profile builder:
+
+![Custom Profile Builder — choose cards and pin columns](screenshots/custom-profile-builder.png)
 
 **Standard Cards** — choose which overview cards to show and in what order. Cards marked `P1–P4` appear in the primary top row; `S1+` appear in secondary rows below.
 
