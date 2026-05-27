@@ -4,6 +4,25 @@ User-facing changes. Detailed dev notes live in [`notes/dev-log.md`](notes/dev-l
 
 ## [Unreleased]
 
+## [1.2.0] — 2026-05-27
+
+Documentation, tooling, and sample data release. No `src/` changes since v1.0.0 — dist HTML files are byte-equivalent. The value of this release is everything *around* the tool.
+
+### Added
+- `examples/sample-chronicle.csv` — fabricated UDM-format attack chain (process launch, network connection, file creation, registry value set) with `security_result.severity` populated so severity auto-highlights kick in
+- `examples/sample-windows-security.csv` — 53-event Windows Security log exercising every Windows Security card (Logon Analysis, Spray/Brute Force, Account Changes, Auth Events, Network Logons, RDP Sessions, Attack Chain)
+- 6 new screenshots: `windows-security-overview.png`, `attack-chain.png`, `timeline.png` (standalone), `bytes-chart.png` (standalone), `table-highlighted.png`, replaced `ttp-selector.png` with full expanded view
+- GitHub Actions `build.yml` workflow — runs `python3 build.py` on every push/PR, build badge in README
+- GitHub Actions `release.yml` workflow — pushing a `vX.Y.Z` tag auto-builds dist and opens a draft release
+- Issue templates: `bug.yml`, `feature.yml`, `config.yml` (routes security reports to advisory flow)
+- Repo description, homepage, and 15 topics on GitHub for discoverability
+
+### Changed
+- **README restructure** — log viewer features (Table / Filter / Context Menu / Keyboard) moved above the threat-hunting dashboard. Reframes Sift as a CSV viewer with hunt features layered on top (which is what most users come for)
+- README TOC now grouped: **Core log viewer** / **Threat hunting layer** / **Reference**
+- Technique profiles section: the 57-technique dot-separated wall replaced with a clean tactic-grouped table
+- CONTRIBUTING.md: documented release process under "Cutting a release"
+
 ## [1.0.0] — 2026-05-27
 
 First production-ready release. [GitHub release](https://github.com/rvicenciojr/Sift-ThreatHuntingInvestigator/releases/tag/v1.0.0).
