@@ -36,176 +36,9 @@ That's it. One file, nothing else needed. Works completely offline.
 
 ---
 
-## Supported log sources
-
-### Microsoft Defender for Endpoint
-
-**How to export:** Advanced Hunting → run your KQL query → Export → CSV
-
-Auto-detected by: `ActionType`, `InitiatingProcessFileName`, `ProcessCommandLine`, `ReportId`
-
-**Features unlocked:** Process Tree · Network Map · Script Decoder · All TTP context cards · Registry card · Hash card with VirusTotal links · Defender KQL query building
-
-| Feature | Defender columns |
-|---------|-----------------|
-| Timestamp | `Event Time` / `Timestamp` |
-| Device | `Computer Name` / `DeviceName` |
-| User | `Account Name` / `InitiatingProcessAccountName` |
-| Action type | `Action Type` / `ActionType` |
-| Process name | `File Name` / `FileName` |
-| Command line | `Process Command Line` / `ProcessCommandLine` |
-| Parent process | `Initiating Process File Name` / `InitiatingProcessFileName` |
-| Parent cmdline | `Initiating Process Command Line` / `InitiatingProcessCommandLine` |
-| Remote IP | `Remote IP` / `RemoteIP` |
-| Remote URL | `Remote Url` / `RemoteUrl` |
-| Remote port | `Remote Port` / `RemotePort` |
-| Registry key | `Registry Key` / `RegistryKey` |
-| SHA256 | `Sha256` / `Initiating Process SHA256` |
-| MD5 | `MD5` / `Initiating Process MD5` |
-| Process integrity | `Process Integrity Level` / `ProcessIntegrityLevel` |
-
-> **Tip:** If a card is missing, check that your Advanced Hunting query includes the relevant table. Registry card requires `DeviceRegistryEvents`. Network card requires `DeviceNetworkEvents`.
-
----
-
-### Google Chronicle / SecOps
-
-**How to export:** Search/Detections → run UDM query → Export results → CSV
-
-Auto-detected by: `metadata.event_type`, `principal.hostname`, `security_result.severity`
-
-**Features unlocked:** Process Tree · Network Map · Severity card · Severity auto-highlights · All TTP context cards · Registry card · Hash card with VirusTotal links · YARA-L generation · Chronicle UDM query building
-
-| Feature | Chronicle UDM fields |
-|---------|---------------------|
-| Timestamp | `metadata.event_timestamp` / `udm.metadata.event_timestamp` |
-| Device | `principal.hostname` / `udm.principal.hostname` |
-| User | `principal.user.userid` / `udm.principal.user.userid` |
-| Action type | `metadata.event_type` / `udm.metadata.event_type` |
-| Process name | `principal.process.file.full_path` |
-| Command line | `principal.process.command_line` |
-| Parent process | `principal.process.parent_process.file.full_path` |
-| Parent cmdline | `principal.process.parent_process.command_line` |
-| Remote IP | `target.ip` / `udm.target.ip` |
-| Remote port | `target.port` / `udm.target.port` |
-| Remote URL / hostname | `target.hostname` |
-| Registry key | `target.registry.registry_key` |
-| Registry value | `target.registry.registry_value_name` |
-| Registry data | `target.registry.registry_value_data` |
-| SHA256 | `principal.process.file.sha256` |
-| Severity | `security_result.severity` / `udm.security_result.severity` |
-| Target user | `target.user.userid` |
-
----
-
-### Windows Security Event Logs
-
-**How to export:**
-
-```powershell
-# Option 1 — PowerShell (all Security events)
-Get-WinEvent -LogName Security |
-  Select-Object TimeCreated,Id,Message,MachineName |
-  Export-Csv C:\security_events.csv -NoTypeInformation
-
-# Option 2 — Specific EventIDs only
-Get-WinEvent -FilterHashtable @{LogName='Security'; Id=4688,4624,4625,4648,4720,4728} |
-  Select-Object * | Export-Csv C:\filtered_events.csv -NoTypeInformation
-```
-
-```
-# Option 3 — EvtxECmd (Eric Zimmerman tools)
-EvtxECmd.exe -f C:\Windows\System32\winevt\Logs\Security.evtx --csv C:\output\ --csvf security.csv
-```
-
-**Option 4 — Drop a `.evtx` file directly** (Windows variants only — no conversion needed)
-
-**Option 5 — SIEM export** from Sentinel, Splunk, or Elastic with at minimum: `TimeCreated`, `EventID`, `Computer`, `SubjectUserName`, `TargetUserName`, `NewProcessName`, `ParentProcessName`, `IpAddress`, `LogonType`
-
-Auto-detected by: `EventID`, `SubjectUserName`, `TargetUserName`, `LogonType`, `NewProcessName`, `IpAddress`
-
-| Field | Accepted column names |
-|-------|----------------------|
-| Timestamp | `TimeCreated`, `Time Created` |
-| Event ID | `EventID`, `Event ID` |
-| Computer | `Computer`, `ComputerName`, `WorkstationName` |
-| Subject user | `SubjectUserName`, `Subject User Name` |
-| Target user | `TargetUserName`, `Target User Name`, `AccountName` |
-| Logon type | `LogonType`, `Logon Type` |
-| Source IP | `IpAddress`, `Ip Address` |
-| New process | `NewProcessName`, `New Process Name` |
-| Parent process | `ParentProcessName`, `Parent Process Name` |
-| Command line | `CommandLine`, `Command Line` |
-| New process PID | `NewProcessId`, `New Process Id` |
-| Parent PID | `ProcessId`, `Process Id` |
-| Auth package | `AuthenticationPackageName` |
-| Status / failure | `Status`, `SubStatus`, `FailureReason` |
-| Service name | `ServiceName` |
-| Service binary | `ServiceFileName` |
-
-### Generic CSV — sift-generic.html
-
-`sift-generic.html` is a lightweight version for anyone who needs to explore structured data without the threat hunting intelligence layer. Load any CSV — firewall logs, DHCP, proxy, ops exports, audit logs — and get:
-
-- **Overview** — frequency timeline, top offenders, activity, hosts, users, network connections, hashes (whatever columns are present)
-- **Timeline** — event distribution with drag-to-zoom
-- **Bytes chart** — if your data has traffic volume columns
-- **Filters** — full multi-row filter bar with regex, exact match, column picker
-- **General IT investigation profiles** — reshapes the overview for IT-specific use cases
-
-![Generic overview dashboard](screenshots/generic-overview.png)
-
-MITRE ATT&CK, Process Tree, Network Map, Script Decoder, and Query Builder are not included — the tool stays clean and focused for non-security use.
-
-Any CSV works. The tool scans column names and builds only the cards it has data for.
-
----
-
-## Typical investigation workflow
-
-```
-1. Load file
-   └── Tool auto-detects Defender, Chronicle, or Windows Security and unlocks relevant features
-
-2. Open Overview  (📋 button in toolbar)
-   └── ATT&CK Coverage shows which tactics and techniques fired immediately
-   └── Event Frequency Timeline shows when activity happened colored by event type
-   └── Top Offenders shows top source IPs, targeted accounts, spawned processes
-   └── Notable Indicators surface suspicious patterns automatically
-   └── Windows Security: Logon Analysis, Spray Detection, Account Changes, Kerberos Events
-
-3. Pick an Investigation Profile  ("Investigating: ▾" dropdown)
-   └── General IT profiles available in all variants (Network, User Activity, File Ops, etc.)
-   └── MITRE tactic profiles in security variants (Execution, Lateral Movement, etc.)
-   └── Dashboard reshapes — most relevant cards move to the top
-   └── TTP Context Card appears with full per-event detail when a technique profile is selected
-
-4. Click anything in the dashboard to build your filter
-   └── Every row, chip, and indicator is clickable — adds a filter and stays in overview
-   └── All cards update live as filters stack
-   └── Active filter strip shows what is active with × to remove each layer
-
-5. Hit "→ View in table" when ready
-   └── Jumps to raw table showing exactly the filtered rows
-   └── All filters remain active in the filter bar
-   └── Click 📋 Overview again to return to the dashboard
-
-6. Deep dive with analysis tools  (security variants)
-   └── 🌲 Process Tree — full parent/child chain for affected hosts
-   └── 🗺 Network Map — process-to-endpoint graph with beaconing detection
-   └── 🔍 Script Decoder — decoded PowerShell and AMSI content
-   └── All tools respect active filters — scoped to your current filtered dataset
-
-7. Build SIEM queries  (security variants)
-   └── Right-click any value → Copy Defender KQL, Chronicle UDM, or Sentinel KQL
-   └── Query Builder accumulates multiple IOCs into a single query
-```
-
----
-
 ## Overview Dashboard
 
-Open with **📋 Overview** in the analysis toolbar.
+Open with **📋 Overview** in the analysis toolbar — this is the main starting point after loading data.
 
 ![Overview dashboard — ATT&CK Coverage, TTP Selector, Event Frequency, Top Offenders](screenshots/overview.png)
 
@@ -337,15 +170,11 @@ Always shown at the bottom, sorted by active profile relevance.
 
 ---
 
-## Analysis Tools
-
-All tools respect active filters — scoped to your current filtered dataset.
-
-### 🌲 Process Tree
+## 🌲 Process Tree
 
 ![Process Tree](screenshots/process-tree.png)
 
-Hierarchical parent/child process view. Click any node for full detail: cmdline, hashes, network events, registry changes. Filter by host or search by process/cmdline/IP.
+Hierarchical parent/child process view. Click any node for full detail: cmdline, hashes, network events, registry changes. Filter by host or search by process/cmdline/IP. Respects active filters — scoped to your current filtered dataset.
 
 **Chronicle UDM action type categories:**
 
@@ -370,6 +199,12 @@ Hierarchical parent/child process view. Click any node for full detail: cmdline,
 | Account Changes | 🟣 Purple | 4720 Create, 4725 Disable, 4726 Delete, 4738 Modify |
 | Group Changes | 🟣 Violet | 4728/4732/4756 Group Membership |
 | Log / Policy | 🩷 Pink | 1102/1100 Log Clear, 4719 Audit Policy Change |
+
+---
+
+## Other Analysis Tools
+
+All tools respect active filters — scoped to your current filtered dataset.
 
 ### 🗺 Network Map
 
@@ -493,6 +328,173 @@ Available everywhere — table cells, overview rows, context card fields, proces
 | Right-click column header | Table header | Move / Sort / Hide |
 | Click + drag in table | Table cells | Select a range of cells (Excel-style) |
 | Shift + click | Table cells | Extend selection |
+
+---
+
+## Typical investigation workflow
+
+```
+1. Load file
+   └── Tool auto-detects Defender, Chronicle, or Windows Security and unlocks relevant features
+
+2. Open Overview  (📋 button in toolbar)
+   └── ATT&CK Coverage shows which tactics and techniques fired immediately
+   └── Event Frequency Timeline shows when activity happened colored by event type
+   └── Top Offenders shows top source IPs, targeted accounts, spawned processes
+   └── Notable Indicators surface suspicious patterns automatically
+   └── Windows Security: Logon Analysis, Spray Detection, Account Changes, Kerberos Events
+
+3. Pick an Investigation Profile  ("Investigating: ▾" dropdown)
+   └── General IT profiles available in all variants (Network, User Activity, File Ops, etc.)
+   └── MITRE tactic profiles in security variants (Execution, Lateral Movement, etc.)
+   └── Dashboard reshapes — most relevant cards move to the top
+   └── TTP Context Card appears with full per-event detail when a technique profile is selected
+
+4. Click anything in the dashboard to build your filter
+   └── Every row, chip, and indicator is clickable — adds a filter and stays in overview
+   └── All cards update live as filters stack
+   └── Active filter strip shows what is active with × to remove each layer
+
+5. Hit "→ View in table" when ready
+   └── Jumps to raw table showing exactly the filtered rows
+   └── All filters remain active in the filter bar
+   └── Click 📋 Overview again to return to the dashboard
+
+6. Deep dive with analysis tools  (security variants)
+   └── 🌲 Process Tree — full parent/child chain for affected hosts
+   └── 🗺 Network Map — process-to-endpoint graph with beaconing detection
+   └── 🔍 Script Decoder — decoded PowerShell and AMSI content
+   └── All tools respect active filters — scoped to your current filtered dataset
+
+7. Build SIEM queries  (security variants)
+   └── Right-click any value → Copy Defender KQL, Chronicle UDM, or Sentinel KQL
+   └── Query Builder accumulates multiple IOCs into a single query
+```
+
+---
+
+## Supported log sources
+
+### Microsoft Defender for Endpoint
+
+**How to export:** Advanced Hunting → run your KQL query → Export → CSV
+
+Auto-detected by: `ActionType`, `InitiatingProcessFileName`, `ProcessCommandLine`, `ReportId`
+
+**Features unlocked:** Process Tree · Network Map · Script Decoder · All TTP context cards · Registry card · Hash card with VirusTotal links · Defender KQL query building
+
+| Feature | Defender columns |
+|---------|-----------------|
+| Timestamp | `Event Time` / `Timestamp` |
+| Device | `Computer Name` / `DeviceName` |
+| User | `Account Name` / `InitiatingProcessAccountName` |
+| Action type | `Action Type` / `ActionType` |
+| Process name | `File Name` / `FileName` |
+| Command line | `Process Command Line` / `ProcessCommandLine` |
+| Parent process | `Initiating Process File Name` / `InitiatingProcessFileName` |
+| Parent cmdline | `Initiating Process Command Line` / `InitiatingProcessCommandLine` |
+| Remote IP | `Remote IP` / `RemoteIP` |
+| Remote URL | `Remote Url` / `RemoteUrl` |
+| Remote port | `Remote Port` / `RemotePort` |
+| Registry key | `Registry Key` / `RegistryKey` |
+| SHA256 | `Sha256` / `Initiating Process SHA256` |
+| MD5 | `MD5` / `Initiating Process MD5` |
+| Process integrity | `Process Integrity Level` / `ProcessIntegrityLevel` |
+
+> **Tip:** If a card is missing, check that your Advanced Hunting query includes the relevant table. Registry card requires `DeviceRegistryEvents`. Network card requires `DeviceNetworkEvents`.
+
+---
+
+### Google Chronicle / SecOps
+
+**How to export:** Search/Detections → run UDM query → Export results → CSV
+
+Auto-detected by: `metadata.event_type`, `principal.hostname`, `security_result.severity`
+
+**Features unlocked:** Process Tree · Network Map · Severity card · Severity auto-highlights · All TTP context cards · Registry card · Hash card with VirusTotal links · YARA-L generation · Chronicle UDM query building
+
+| Feature | Chronicle UDM fields |
+|---------|---------------------|
+| Timestamp | `metadata.event_timestamp` / `udm.metadata.event_timestamp` |
+| Device | `principal.hostname` / `udm.principal.hostname` |
+| User | `principal.user.userid` / `udm.principal.user.userid` |
+| Action type | `metadata.event_type` / `udm.metadata.event_type` |
+| Process name | `principal.process.file.full_path` |
+| Command line | `principal.process.command_line` |
+| Parent process | `principal.process.parent_process.file.full_path` |
+| Parent cmdline | `principal.process.parent_process.command_line` |
+| Remote IP | `target.ip` / `udm.target.ip` |
+| Remote port | `target.port` / `udm.target.port` |
+| Remote URL / hostname | `target.hostname` |
+| Registry key | `target.registry.registry_key` |
+| Registry value | `target.registry.registry_value_name` |
+| Registry data | `target.registry.registry_value_data` |
+| SHA256 | `principal.process.file.sha256` |
+| Severity | `security_result.severity` / `udm.security_result.severity` |
+| Target user | `target.user.userid` |
+
+---
+
+### Windows Security Event Logs
+
+**How to export:**
+
+```powershell
+# Option 1 — PowerShell (all Security events)
+Get-WinEvent -LogName Security |
+  Select-Object TimeCreated,Id,Message,MachineName |
+  Export-Csv C:\security_events.csv -NoTypeInformation
+
+# Option 2 — Specific EventIDs only
+Get-WinEvent -FilterHashtable @{LogName='Security'; Id=4688,4624,4625,4648,4720,4728} |
+  Select-Object * | Export-Csv C:\filtered_events.csv -NoTypeInformation
+```
+
+```
+# Option 3 — EvtxECmd (Eric Zimmerman tools)
+EvtxECmd.exe -f C:\Windows\System32\winevt\Logs\Security.evtx --csv C:\output\ --csvf security.csv
+```
+
+**Option 4 — Drop a `.evtx` file directly** (Windows variants only — no conversion needed)
+
+**Option 5 — SIEM export** from Sentinel, Splunk, or Elastic with at minimum: `TimeCreated`, `EventID`, `Computer`, `SubjectUserName`, `TargetUserName`, `NewProcessName`, `ParentProcessName`, `IpAddress`, `LogonType`
+
+Auto-detected by: `EventID`, `SubjectUserName`, `TargetUserName`, `LogonType`, `NewProcessName`, `IpAddress`
+
+| Field | Accepted column names |
+|-------|----------------------|
+| Timestamp | `TimeCreated`, `Time Created` |
+| Event ID | `EventID`, `Event ID` |
+| Computer | `Computer`, `ComputerName`, `WorkstationName` |
+| Subject user | `SubjectUserName`, `Subject User Name` |
+| Target user | `TargetUserName`, `Target User Name`, `AccountName` |
+| Logon type | `LogonType`, `Logon Type` |
+| Source IP | `IpAddress`, `Ip Address` |
+| New process | `NewProcessName`, `New Process Name` |
+| Parent process | `ParentProcessName`, `Parent Process Name` |
+| Command line | `CommandLine`, `Command Line` |
+| New process PID | `NewProcessId`, `New Process Id` |
+| Parent PID | `ProcessId`, `Process Id` |
+| Auth package | `AuthenticationPackageName` |
+| Status / failure | `Status`, `SubStatus`, `FailureReason` |
+| Service name | `ServiceName` |
+| Service binary | `ServiceFileName` |
+
+### Generic CSV — sift-generic.html
+
+`sift-generic.html` is a lightweight version for anyone who needs to explore structured data without the threat hunting intelligence layer. Load any CSV — firewall logs, DHCP, proxy, ops exports, audit logs — and get:
+
+- **Overview** — frequency timeline, top offenders, activity, hosts, users, network connections, hashes (whatever columns are present)
+- **Timeline** — event distribution with drag-to-zoom
+- **Bytes chart** — if your data has traffic volume columns
+- **Filters** — full multi-row filter bar with regex, exact match, column picker
+- **General IT investigation profiles** — reshapes the overview for IT-specific use cases
+
+![Generic overview dashboard](screenshots/generic-overview.png)
+
+MITRE ATT&CK, Process Tree, Network Map, Script Decoder, and Query Builder are not included — the tool stays clean and focused for non-security use.
+
+Any CSV works. The tool scans column names and builds only the cards it has data for.
 
 ---
 
