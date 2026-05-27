@@ -344,6 +344,8 @@ The main data grid — sortable columns, row-level highlights, filter controls i
 
 ## Filter Bar
 
+![Filter bar — add row, clear all, columns, presets, highlights, filters enabled toggle](screenshots/filter-bar.png)
+
 | Control | What it does |
 |---------|-------------|
 | ＋ Add filter row | Adds a condition with column, match mode, and value |
