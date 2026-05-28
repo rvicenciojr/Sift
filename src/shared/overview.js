@@ -3,6 +3,8 @@
 
   var overviewVisible  = false;
   var _ovWorker        = null;
+  var _ovGen           = 0;    // Monotonic id per render; worker echoes; stale responses dropped
+  var _ovRowsByGen     = null; // Map of gen -> rows snapshot for the done handler
   var _ovRenderTimer   = null;
   var _ovProfile       = null; // null = default | tactic name | technique ID
   var _ovCustomActive  = null; // active custom profile { name, cards, customFields } | null
@@ -118,6 +120,7 @@
 
   function _killWorker() {
     if (_ovWorker) { _ovWorker.terminate(); _ovWorker = null; }
+    _ovRowsByGen = null; // clear pending-gen snapshots when worker terminates
     _ovTypeaheadStr = ''; clearTimeout(_ovTypeaheadTimer);
     _ovHoveredList = null; _ovHoveredRegion = null;
   }
@@ -203,26 +206,39 @@
       if (col) mitreCols[key] = allRows.map(r => r[col] || '');
     });
 
-    _killWorker();
-    _ovWorker = createBlobWorker('overview-worker-src');
+    // Reuse worker across renders; drop stale responses via gen tracking
+    _ovGen = (_ovGen || 0) + 1;
+    const myGen = _ovGen;
+    if (!_ovRowsByGen) _ovRowsByGen = {};
+    _ovRowsByGen[myGen] = rows;
 
-    _ovWorker.onmessage = function(e) {
-      if (e.data.type === 'progress') {
-        const el = document.getElementById('ovLoadMsg');
-        if (el) el.textContent = e.data.msg;
-      } else if (e.data.type === 'done') {
-        _ovWorker = null;
-        renderFromData(e.data.data, rows);
-      }
-    };
+    if (!_ovWorker) {
+      _ovWorker = createBlobWorker('overview-worker-src');
 
-    _ovWorker.onerror = function(err) {
-      _ovWorker = null;
-      console.error('Overview worker error:', err);
-      renderFromData(_computeFallback(rows), rows);
-    };
+      _ovWorker.onmessage = function(e) {
+        const msgGen = e.data.gen;
+        // Drop responses for any generation older than the latest one we kicked off
+        if (msgGen !== _ovGen) return;
+        if (e.data.type === 'progress') {
+          const el = document.getElementById('ovLoadMsg');
+          if (el) el.textContent = e.data.msg;
+        } else if (e.data.type === 'done') {
+          const rowsForGen = _ovRowsByGen[msgGen] || rows;
+          // Cleanup all entries up to and including this gen
+          for (const k in _ovRowsByGen) { if (+k <= msgGen) delete _ovRowsByGen[k]; }
+          renderFromData(e.data.data, rowsForGen);
+        }
+      };
 
-    _ovWorker.postMessage({ cols, mitreCols, ptColMap, isChronicleData,
+      _ovWorker.onerror = function(err) {
+        // Kill on hard error and let next render respawn
+        _killWorker();
+        console.error('Overview worker error:', err);
+        renderFromData(_computeFallback(rows), rows);
+      };
+    }
+
+    _ovWorker.postMessage({ gen: myGen, cols, mitreCols, ptColMap, isChronicleData,
       isWindowsSecLog: (typeof isWindowsSecurityLog !== 'undefined' && isWindowsSecurityLog),
       severityColName, activeProfile: _ovProfile || '',
       buildFeatures: (typeof SIFT_FEATURES !== 'undefined') ? SIFT_FEATURES : {} });

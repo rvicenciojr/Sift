@@ -6157,16 +6157,32 @@ ${evtLine}    \$e.${udm} = "${v}"
     if (filterRow.mode === 'ttp') {
       return filterRow.matchingSet ? filterRow.matchingSet.has(dataRow) : true;
     }
-    const text = filterRow.col
-      ? ((dataRow[filterRow.col] != null ? dataRow[filterRow.col] : '')).toLowerCase()
-      : (dataRow._rt || '');
+    // Cache lowercased filter value once per filterRow (avoids N toLowerCase calls)
+    if (filterRow._valLc === undefined || filterRow._valLcOf !== val) {
+      filterRow._valLc = val.toLowerCase();
+      filterRow._valLcOf = val;
+    }
+    const valLc = filterRow._valLc;
+    // Per-column lowercase cache on the data row (avoids per-row toLowerCase per filter)
+    let text;
+    if (filterRow.col) {
+      const lcKey = '__lc__' + filterRow.col;
+      text = dataRow[lcKey];
+      if (text === undefined) {
+        const raw = dataRow[filterRow.col];
+        text = raw != null ? String(raw).toLowerCase() : '';
+        dataRow[lcKey] = text;
+      }
+    } else {
+      text = dataRow._rt || '';
+    }
     switch (filterRow.mode) {
-      case 'contains':    return text.includes(val.toLowerCase());
-      case 'notcontains': return !text.includes(val.toLowerCase());
-      case 'equals':      return text === val.toLowerCase();
-      case 'notequals':   return text !== val.toLowerCase();
-      case 'startswith':  return text.startsWith(val.toLowerCase());
-      case 'endswith':    return text.endsWith(val.toLowerCase());
+      case 'contains':    return text.includes(valLc);
+      case 'notcontains': return !text.includes(valLc);
+      case 'equals':      return text === valLc;
+      case 'notequals':   return text !== valLc;
+      case 'startswith':  return text.startsWith(valLc);
+      case 'endswith':    return text.endsWith(valLc);
       case 'regex': {
         // Cache compiled regex on the filter row — only recompile when value changes
         if (!filterRow._re || filterRow._reVal !== val) {
@@ -6216,11 +6232,16 @@ ${evtLine}    \$e.${udm} = "${v}"
        }
        rows = applyTimestampFilter(rows);
      }
-    // Highlight-only filter
+    // Highlight-only filter — hoist term.toLowerCase() out of inner loop
     if (hlOnly && tags.length) {
+      const lcTerms = tags.map(t => t.term.toLowerCase());
+      const tlen = lcTerms.length;
       rows = rows.filter(row => {
         const rowText = row._rt || '';
-        return tags.some(t => rowText.includes(t.term.toLowerCase()));
+        for (let i = 0; i < tlen; i++) {
+          if (rowText.includes(lcTerms[i])) return true;
+        }
+        return false;
       });
     }
     renderTable(rows);
@@ -11876,6 +11897,8 @@ const TECHNIQUE_PROFILES = {
 
   var overviewVisible  = false;
   var _ovWorker        = null;
+  var _ovGen           = 0;    // Monotonic id per render; worker echoes; stale responses dropped
+  var _ovRowsByGen     = null; // Map of gen -> rows snapshot for the done handler
   var _ovRenderTimer   = null;
   var _ovProfile       = null; // null = default | tactic name | technique ID
   var _ovCustomActive  = null; // active custom profile { name, cards, customFields } | null
@@ -11991,6 +12014,7 @@ const TECHNIQUE_PROFILES = {
 
   function _killWorker() {
     if (_ovWorker) { _ovWorker.terminate(); _ovWorker = null; }
+    _ovRowsByGen = null; // clear pending-gen snapshots when worker terminates
     _ovTypeaheadStr = ''; clearTimeout(_ovTypeaheadTimer);
     _ovHoveredList = null; _ovHoveredRegion = null;
   }
@@ -12076,26 +12100,39 @@ const TECHNIQUE_PROFILES = {
       if (col) mitreCols[key] = allRows.map(r => r[col] || '');
     });
 
-    _killWorker();
-    _ovWorker = createBlobWorker('overview-worker-src');
+    // Reuse worker across renders; drop stale responses via gen tracking
+    _ovGen = (_ovGen || 0) + 1;
+    const myGen = _ovGen;
+    if (!_ovRowsByGen) _ovRowsByGen = {};
+    _ovRowsByGen[myGen] = rows;
 
-    _ovWorker.onmessage = function(e) {
-      if (e.data.type === 'progress') {
-        const el = document.getElementById('ovLoadMsg');
-        if (el) el.textContent = e.data.msg;
-      } else if (e.data.type === 'done') {
-        _ovWorker = null;
-        renderFromData(e.data.data, rows);
-      }
-    };
+    if (!_ovWorker) {
+      _ovWorker = createBlobWorker('overview-worker-src');
 
-    _ovWorker.onerror = function(err) {
-      _ovWorker = null;
-      console.error('Overview worker error:', err);
-      renderFromData(_computeFallback(rows), rows);
-    };
+      _ovWorker.onmessage = function(e) {
+        const msgGen = e.data.gen;
+        // Drop responses for any generation older than the latest one we kicked off
+        if (msgGen !== _ovGen) return;
+        if (e.data.type === 'progress') {
+          const el = document.getElementById('ovLoadMsg');
+          if (el) el.textContent = e.data.msg;
+        } else if (e.data.type === 'done') {
+          const rowsForGen = _ovRowsByGen[msgGen] || rows;
+          // Cleanup all entries up to and including this gen
+          for (const k in _ovRowsByGen) { if (+k <= msgGen) delete _ovRowsByGen[k]; }
+          renderFromData(e.data.data, rowsForGen);
+        }
+      };
 
-    _ovWorker.postMessage({ cols, mitreCols, ptColMap, isChronicleData,
+      _ovWorker.onerror = function(err) {
+        // Kill on hard error and let next render respawn
+        _killWorker();
+        console.error('Overview worker error:', err);
+        renderFromData(_computeFallback(rows), rows);
+      };
+    }
+
+    _ovWorker.postMessage({ gen: myGen, cols, mitreCols, ptColMap, isChronicleData,
       isWindowsSecLog: (typeof isWindowsSecurityLog !== 'undefined' && isWindowsSecurityLog),
       severityColName, activeProfile: _ovProfile || '',
       buildFeatures: (typeof SIFT_FEATURES !== 'undefined') ? SIFT_FEATURES : {} });
@@ -14933,22 +14970,26 @@ const TECHNIQUE_PROFILES = {
 // Posts:    { type:'progress', msg } | { type:'done', data }
 
 self.onmessage = function(e) {
+  // Echo gen back so main thread can drop stale results from earlier renders
+  const gen = e.data.gen;
+  const post = (d) => self.postMessage(Object.assign({ gen }, d));
+
   const { cols, mitreCols, ptColMap, isChronicleData, isWindowsSecLog, severityColName, activeProfile, buildFeatures } = e.data;
   const mitrEnabled = !buildFeatures || buildFeatures.mitre !== false;
   const mCols = mitreCols || cols;
   const n = (cols.ts || cols.action || cols.fileName || []).length;
 
-  self.postMessage({ type: 'progress', msg: 'Analyzing columns…' });
+  post({ type: 'progress', msg: 'Analyzing columns…' });
   const s = buildSections(cols, ptColMap, severityColName, n);
 
-  self.postMessage({ type: 'progress', msg: 'Building overview…' });
+  post({ type: 'progress', msg: 'Building overview…' });
   const data = computeCards(cols, s, n);
 
-  self.postMessage({ type: 'progress', msg: 'Running indicator checks…' });
+  post({ type: 'progress', msg: 'Running indicator checks…' });
   data.indicators = mitrEnabled ? computeIndicators(cols, s, n) : [];
 
   if (mitrEnabled) {
-  self.postMessage({ type: 'progress', msg: 'Running MITRE ATT&CK detections…' });
+  post({ type: 'progress', msg: 'Running MITRE ATT&CK detections…' });
   // When a profile is active use filtered cols so coverage reflects what's in the filtered data;
   // otherwise use mCols (all rows) so the full picture is always visible on General view
   const mitreSource = activeProfile ? cols : mCols;
@@ -14957,32 +14998,32 @@ self.onmessage = function(e) {
 
   // TTP context card — structured records for the active technique profile
   if (activeProfile) {
-    self.postMessage({ type: 'progress', msg: 'Building investigation context…' });
+    post({ type: 'progress', msg: 'Building investigation context…' });
     data.ttpContext = computeTtpContext(cols, s, n, activeProfile);
   }
   } // end if (mitrEnabled)
 
   // Windows Security Log — specialized analysis
   if (isWindowsSecLog) {
-    self.postMessage({ type: 'progress', msg: 'Analyzing Windows Security events…' });
+    post({ type: 'progress', msg: 'Analyzing Windows Security events…' });
     data.winSec = computeWindowsSecurityData(cols, ptColMap, n);
   }
 
   // Visualization layers — always computed
-  self.postMessage({ type: 'progress', msg: 'Building frequency timeline…' });
+  post({ type: 'progress', msg: 'Building frequency timeline…' });
   data.freqTimeline = computeFreqTimeline(cols, isWindowsSecLog, n);
 
 
-  self.postMessage({ type: 'progress', msg: 'Building top-N tables…' });
+  post({ type: 'progress', msg: 'Building top-N tables…' });
   data.topN = computeTopN(cols, s, n, isWindowsSecLog);
 
   // Attack chain only meaningful for Windows Security Event Logs
   if (isWindowsSecLog) {
-    self.postMessage({ type: 'progress', msg: 'Building attack chain…' });
+    post({ type: 'progress', msg: 'Building attack chain…' });
     data.attackChain = computeAttackChain(cols, s, n, isWindowsSecLog);
   }
 
-  self.postMessage({ type: 'done', data });
+  post({ type: 'done', data });
 };
 
 // ── TTP context records — structured per-event detail for investigation cards ──

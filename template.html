@@ -798,22 +798,26 @@ self.onmessage = function (e) {
 // Posts:    { type:'progress', msg } | { type:'done', data }
 
 self.onmessage = function(e) {
+  // Echo gen back so main thread can drop stale results from earlier renders
+  const gen = e.data.gen;
+  const post = (d) => self.postMessage(Object.assign({ gen }, d));
+
   const { cols, mitreCols, ptColMap, isChronicleData, isWindowsSecLog, severityColName, activeProfile, buildFeatures } = e.data;
   const mitrEnabled = !buildFeatures || buildFeatures.mitre !== false;
   const mCols = mitreCols || cols;
   const n = (cols.ts || cols.action || cols.fileName || []).length;
 
-  self.postMessage({ type: 'progress', msg: 'Analyzing columns…' });
+  post({ type: 'progress', msg: 'Analyzing columns…' });
   const s = buildSections(cols, ptColMap, severityColName, n);
 
-  self.postMessage({ type: 'progress', msg: 'Building overview…' });
+  post({ type: 'progress', msg: 'Building overview…' });
   const data = computeCards(cols, s, n);
 
-  self.postMessage({ type: 'progress', msg: 'Running indicator checks…' });
+  post({ type: 'progress', msg: 'Running indicator checks…' });
   data.indicators = mitrEnabled ? computeIndicators(cols, s, n) : [];
 
   if (mitrEnabled) {
-  self.postMessage({ type: 'progress', msg: 'Running MITRE ATT&CK detections…' });
+  post({ type: 'progress', msg: 'Running MITRE ATT&CK detections…' });
   // When a profile is active use filtered cols so coverage reflects what's in the filtered data;
   // otherwise use mCols (all rows) so the full picture is always visible on General view
   const mitreSource = activeProfile ? cols : mCols;
@@ -822,32 +826,32 @@ self.onmessage = function(e) {
 
   // TTP context card — structured records for the active technique profile
   if (activeProfile) {
-    self.postMessage({ type: 'progress', msg: 'Building investigation context…' });
+    post({ type: 'progress', msg: 'Building investigation context…' });
     data.ttpContext = computeTtpContext(cols, s, n, activeProfile);
   }
   } // end if (mitrEnabled)
 
   // Windows Security Log — specialized analysis
   if (isWindowsSecLog) {
-    self.postMessage({ type: 'progress', msg: 'Analyzing Windows Security events…' });
+    post({ type: 'progress', msg: 'Analyzing Windows Security events…' });
     data.winSec = computeWindowsSecurityData(cols, ptColMap, n);
   }
 
   // Visualization layers — always computed
-  self.postMessage({ type: 'progress', msg: 'Building frequency timeline…' });
+  post({ type: 'progress', msg: 'Building frequency timeline…' });
   data.freqTimeline = computeFreqTimeline(cols, isWindowsSecLog, n);
 
 
-  self.postMessage({ type: 'progress', msg: 'Building top-N tables…' });
+  post({ type: 'progress', msg: 'Building top-N tables…' });
   data.topN = computeTopN(cols, s, n, isWindowsSecLog);
 
   // Attack chain only meaningful for Windows Security Event Logs
   if (isWindowsSecLog) {
-    self.postMessage({ type: 'progress', msg: 'Building attack chain…' });
+    post({ type: 'progress', msg: 'Building attack chain…' });
     data.attackChain = computeAttackChain(cols, s, n, isWindowsSecLog);
   }
 
-  self.postMessage({ type: 'done', data });
+  post({ type: 'done', data });
 };
 
 // ── TTP context records — structured per-event detail for investigation cards ──

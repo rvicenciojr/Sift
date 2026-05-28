@@ -1251,16 +1251,32 @@
     if (filterRow.mode === 'ttp') {
       return filterRow.matchingSet ? filterRow.matchingSet.has(dataRow) : true;
     }
-    const text = filterRow.col
-      ? ((dataRow[filterRow.col] != null ? dataRow[filterRow.col] : '')).toLowerCase()
-      : (dataRow._rt || '');
+    // Cache lowercased filter value once per filterRow (avoids N toLowerCase calls)
+    if (filterRow._valLc === undefined || filterRow._valLcOf !== val) {
+      filterRow._valLc = val.toLowerCase();
+      filterRow._valLcOf = val;
+    }
+    const valLc = filterRow._valLc;
+    // Per-column lowercase cache on the data row (avoids per-row toLowerCase per filter)
+    let text;
+    if (filterRow.col) {
+      const lcKey = '__lc__' + filterRow.col;
+      text = dataRow[lcKey];
+      if (text === undefined) {
+        const raw = dataRow[filterRow.col];
+        text = raw != null ? String(raw).toLowerCase() : '';
+        dataRow[lcKey] = text;
+      }
+    } else {
+      text = dataRow._rt || '';
+    }
     switch (filterRow.mode) {
-      case 'contains':    return text.includes(val.toLowerCase());
-      case 'notcontains': return !text.includes(val.toLowerCase());
-      case 'equals':      return text === val.toLowerCase();
-      case 'notequals':   return text !== val.toLowerCase();
-      case 'startswith':  return text.startsWith(val.toLowerCase());
-      case 'endswith':    return text.endsWith(val.toLowerCase());
+      case 'contains':    return text.includes(valLc);
+      case 'notcontains': return !text.includes(valLc);
+      case 'equals':      return text === valLc;
+      case 'notequals':   return text !== valLc;
+      case 'startswith':  return text.startsWith(valLc);
+      case 'endswith':    return text.endsWith(valLc);
       case 'regex': {
         // Cache compiled regex on the filter row — only recompile when value changes
         if (!filterRow._re || filterRow._reVal !== val) {
@@ -1310,11 +1326,16 @@
        }
        rows = applyTimestampFilter(rows);
      }
-    // Highlight-only filter
+    // Highlight-only filter — hoist term.toLowerCase() out of inner loop
     if (hlOnly && tags.length) {
+      const lcTerms = tags.map(t => t.term.toLowerCase());
+      const tlen = lcTerms.length;
       rows = rows.filter(row => {
         const rowText = row._rt || '';
-        return tags.some(t => rowText.includes(t.term.toLowerCase()));
+        for (let i = 0; i < tlen; i++) {
+          if (rowText.includes(lcTerms[i])) return true;
+        }
+        return false;
       });
     }
     renderTable(rows);
