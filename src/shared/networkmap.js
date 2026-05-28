@@ -10,6 +10,12 @@
   var nmTransform = { x: 0, y: 0, scale: 1 };
   var nmCanvasInited = false;
   var nmTableVisible = false;
+  // Density gate — above this many nodes the force graph is unreadable AND slow
+  var NM_MAX_NODES        = 300;
+  var NM_TABLE_RENDER_CAP = 500;
+  var NM_EDGE_TS_CAP      = 200; // cap timestamps stored per edge for jitter calc
+  // Palette for tinting internal endpoint nodes by /24 subnet — borders only, fill stays teal-ish
+  var NM_SUBNET_PALETTE = ['#2dd4bf', '#7ee8c4', '#88b3b1', '#5da39d', '#9cd4c0', '#6dbfa8', '#a8dad0', '#4fa893'];
   // Table state
   var nmTableRows    = [];
   var nmTableSearch  = '';
@@ -356,8 +362,20 @@
       return String(av||'').localeCompare(String(bv||'')) * nmTableSortDir;
     });
 
+    var totalRows = rows.length;
+    var truncated = totalRows > NM_TABLE_RENDER_CAP;
+    if (truncated) rows = rows.slice(0, NM_TABLE_RENDER_CAP);
+
     var badge = document.getElementById('nmTableCount');
-    if (badge) badge.textContent = rows.length.toLocaleString() + ' rows';
+    if (badge) {
+      if (truncated) {
+        badge.innerHTML = '<span style="color:#f0a500">showing ' +
+          NM_TABLE_RENDER_CAP.toLocaleString() + ' of ' + totalRows.toLocaleString() +
+          ' rows — refine search/filter to narrow</span>';
+      } else {
+        badge.textContent = totalRows.toLocaleString() + ' rows';
+      }
+    }
 
     tbody.innerHTML = '';
     rows.forEach(function(r, i) {
@@ -507,6 +525,182 @@
     return '#778F8D'; // Other
   }
 
+  // Stable subnet-tint pick from the /24 of an IPv4 — gives same colour to all hosts in the subnet
+  function nmSubnetTint(ip) {
+    if (!ip) return NM_SUBNET_PALETTE[0];
+    const m = ip.match(/^(\d+\.\d+\.\d+)\./);
+    if (!m) return NM_SUBNET_PALETTE[0];
+    const subnet = m[1];
+    let h = 0;
+    for (let i = 0; i < subnet.length; i++) h = (h * 31 + subnet.charCodeAt(i)) | 0;
+    return NM_SUBNET_PALETTE[Math.abs(h) % NM_SUBNET_PALETTE.length];
+  }
+
+  // Compute "HH:MM:SS → HH:MM:SS (duration)" from edge first/last timestamps
+  function nmTimeRangeStr() {
+    let minTs = null, maxTs = null;
+    for (const e of nmEdges) {
+      if (e.firstTs && (!minTs || e.firstTs < minTs)) minTs = e.firstTs;
+      if (e.lastTs  && (!maxTs || e.lastTs  > maxTs)) maxTs = e.lastTs;
+    }
+    if (!minTs || !maxTs) return '';
+    const t1 = Date.parse(minTs), t2 = Date.parse(maxTs);
+    if (isNaN(t1) || isNaN(t2)) return '';
+    const start = new Date(t1).toISOString().slice(11, 19);
+    const end   = new Date(t2).toISOString().slice(11, 19);
+    const diff  = t2 - t1;
+    let dur;
+    if (diff < 1000)         dur = '<1s';
+    else if (diff < 60000)   dur = Math.round(diff / 1000) + 's';
+    else if (diff < 3600000) dur = Math.round(diff / 60000) + 'm';
+    else                     dur = (diff / 3600000).toFixed(1) + 'h';
+    return start + ' → ' + end + ' · ' + dur;
+  }
+
+  // Flag edges that look like beacons: ≥5 events, low jitter (coefficient of variation < 0.25)
+  function nmDetectBeacons() {
+    nmEdges.forEach(e => {
+      e.isBeacon = false;
+      e.beaconInterval = null;
+      if (!e.timestamps || e.timestamps.length < 5) return;
+      const sorted = e.timestamps.map(t => Date.parse(t)).filter(t => !isNaN(t)).sort((a, b) => a - b);
+      if (sorted.length < 5) return;
+      const gaps = [];
+      for (let i = 1; i < sorted.length; i++) gaps.push(sorted[i] - sorted[i-1]);
+      const mean = gaps.reduce((s, g) => s + g, 0) / gaps.length;
+      if (mean < 5000) return; // <5s avg interval — too tight to be meaningful
+      let varSum = 0;
+      for (const g of gaps) varSum += (g - mean) * (g - mean);
+      const cv = Math.sqrt(varSum / gaps.length) / mean;
+      if (cv < 0.25) { e.isBeacon = true; e.beaconInterval = mean; }
+    });
+  }
+
+  // When result set is too dense for the force graph, draw a clear message on the canvas
+  // and populate the detail panel with click-to-apply scoping suggestions.
+  function nmRenderTooDenseHint(processMap, endpointMap, edgeMap, extCount, canvas, W, H) {
+    const dpr = window.devicePixelRatio || 1;
+    canvas.width  = Math.round(W * dpr);
+    canvas.height = Math.round(H * dpr);
+    canvas.style.width  = W + 'px';
+    canvas.style.height = H + 'px';
+    canvas._nmW = W; canvas._nmH = H; canvas._dpr = dpr;
+    const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+
+    ctx.fillStyle = '#f0a500';
+    ctx.font = 'bold 14px system-ui, sans-serif';
+    ctx.textAlign = 'center';
+    ctx.fillText('⚠ Too dense to render meaningfully', W / 2, H / 2 - 36);
+
+    ctx.fillStyle = '#A0AEAC';
+    ctx.font = '12px system-ui, sans-serif';
+    ctx.fillText(processMap.size.toLocaleString() + ' processes · ' +
+                 endpointMap.size.toLocaleString() + ' endpoints · ' +
+                 edgeMap.size.toLocaleString() + ' unique flows',
+                 W / 2, H / 2 - 12);
+
+    ctx.fillStyle = '#778F8D';
+    ctx.font = '11px system-ui, sans-serif';
+    ctx.fillText('The network map shows visual patterns up to ~' + NM_MAX_NODES + ' nodes.',
+                 W / 2, H / 2 + 14);
+    ctx.fillText('Narrow with filters above, or close this and use the log view.',
+                 W / 2, H / 2 + 30);
+    ctx.fillText('Suggested filters in the right panel →', W / 2, H / 2 + 54);
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+
+    const rangeStr = nmTimeRangeStr();
+    document.getElementById('nmStats').innerHTML =
+      `<span style="color:#f0a500">⚠</span> ` +
+      `<strong style="color:var(--cb-yellow)">${processMap.size}</strong> processes · ` +
+      `<strong>${endpointMap.size}</strong> endpoints ` +
+      `(<strong style="color:#f08080">${extCount}</strong> external) · ` +
+      `<strong>${edgeMap.size}</strong> unique flows · ` +
+      `<span style="color:#f0a500">too dense to render</span>` +
+      (rangeStr ? ` · <span style="color:var(--cb-os3);font-size:10px">${rangeStr}</span>` : '');
+
+    // Build scoping suggestions into the detail panel
+    const procs = [...processMap.values()].sort((a, b) => b.connCount - a.connCount).slice(0, 8);
+    const eps   = [...endpointMap.values()].sort((a, b) => b.totalConns - a.totalConns).slice(0, 8);
+    const hostAgg = {};
+    processMap.forEach(p => { const d = p.device || '(none)'; hostAgg[d] = (hostAgg[d] || 0) + p.connCount; });
+    const hostList = Object.entries(hostAgg).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const extOnlyAlready = document.getElementById('nmExtOnlyCheck').checked;
+
+    let html = '<div style="font-size:10px;font-weight:700;color:#f0a500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Scope down to render</div>' +
+               '<div style="font-size:11px;color:var(--modal-text);margin-bottom:10px;line-height:1.4">Click a suggestion to apply it as a filter and rebuild the map. Active connection-type filters are preserved.</div>';
+
+    if (hostList.length > 1) {
+      html += '<div style="font-size:9px;font-weight:700;color:var(--modal-muted);text-transform:uppercase;margin:10px 0 5px">Top Hosts</div>';
+      hostList.forEach(([h, n]) => {
+        html += `<div class="nm-hint-row" data-act="host" data-val="${escapeHtml(h)}" style="padding:5px 7px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:11px;border-bottom:1px solid var(--modal-border)">
+          <span style="font-family:monospace;color:var(--modal-text);flex:1;word-break:break-all">${escapeHtml(h)}</span>
+          <span style="color:var(--cb-yellow);font-weight:700;margin-left:8px">${n.toLocaleString()}</span>
+        </div>`;
+      });
+    }
+
+    html += '<div style="font-size:9px;font-weight:700;color:var(--modal-muted);text-transform:uppercase;margin:12px 0 5px">Top Processes</div>';
+    procs.forEach(p => {
+      html += `<div class="nm-hint-row" data-act="proc" data-val="${escapeHtml(p.fname)}" style="padding:5px 7px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:11px;border-bottom:1px solid var(--modal-border)">
+        <span style="font-family:monospace;color:var(--modal-text);flex:1;word-break:break-all">${escapeHtml(p.fname)}</span>
+        <span style="color:var(--cb-yellow);font-weight:700;margin-left:8px">${p.connCount.toLocaleString()}</span>
+      </div>`;
+    });
+
+    html += '<div style="font-size:9px;font-weight:700;color:var(--modal-muted);text-transform:uppercase;margin:12px 0 5px">Top Destinations</div>';
+    eps.forEach(ep => {
+      const col = ep.isExternal ? '#f08080' : '#7fffd4';
+      html += `<div style="padding:5px 7px;display:flex;justify-content:space-between;align-items:center;font-size:11px;border-bottom:1px solid var(--modal-border)">
+        <span style="font-family:monospace;color:${col};flex:1;word-break:break-all">${escapeHtml(ep.label)}</span>
+        <span style="color:var(--cb-yellow);font-weight:700;margin-left:8px">${ep.totalConns.toLocaleString()}</span>
+      </div>`;
+    });
+
+    if (extCount && !extOnlyAlready) {
+      html += `<div class="nm-hint-row" data-act="ext" style="margin-top:12px;padding:7px 9px;border-radius:4px;cursor:pointer;background:rgba(240,128,128,0.08);border:1px solid rgba(240,128,128,0.3);text-align:center;font-size:11px;color:#f08080;font-weight:700">
+        🔴 Show external endpoints only (${extCount})
+      </div>`;
+    }
+
+    const panel = document.getElementById('nmDetailPanel');
+    panel.innerHTML = html;
+
+    // Wire up click → apply filter, preserve active legend types, rebuild
+    panel.querySelectorAll('.nm-hint-row').forEach(el => {
+      const isExt = el.dataset.act === 'ext';
+      el.onmouseover = function() { el.style.background = 'rgba(255,215,0,0.08)'; };
+      el.onmouseout  = function() { el.style.background = isExt ? 'rgba(240,128,128,0.08)' : ''; };
+      el.onclick = function() {
+        const act = el.dataset.act, val = el.dataset.val;
+        const preserveTypes = new Set(nmEdgeFilter);
+        if (act === 'host') {
+          const sel = document.getElementById('nmHostFilter');
+          if (sel) sel.value = val;
+        } else if (act === 'proc') {
+          const pf = document.getElementById('nmProcFilter');
+          if (pf) pf.value = val;
+        } else if (act === 'ext') {
+          const cb = document.getElementById('nmExtOnlyCheck');
+          if (cb) cb.checked = true;
+        }
+        nmEdgeFilter = preserveTypes;
+        nmNodes = []; nmEdges = [];
+        nmCanvasInited = false;
+        nmBuildLegendUI(nmQuickCount());
+        if (nmEdgeFilter.size > 0) {
+          nmSetStats('Rendering…');
+          setTimeout(buildNetworkMap, 20);
+        } else {
+          nmDrawBlank();
+        }
+        if (nmTableVisible) nmBuildTable();
+      };
+    });
+  }
+
   function buildNetworkMap() {
     ptResolveColumns(headers);
     const hostF   = document.getElementById('nmHostFilter').value;
@@ -562,6 +756,7 @@
           label: epLabel, ip: remoteIp || '',
           domain: (remoteUrl && remoteUrl !== remoteIp) ? remoteUrl : '',
           isExternal: isExt, ports: new Set(),
+          subnetTint: isExt ? null : nmSubnetTint(remoteIp),
           firstSeen: ts, lastSeen: ts, totalConns: 0
         });
       }
@@ -578,7 +773,11 @@
       const edge = edgeMap.get(edgeKey);
       edge.count++;
       if (remotePort && remotePort !== '0') edge.ports.add(remotePort);
-      if (ts) edge.timestamps.push(ts);
+      if (ts) {
+        if (!edge.firstTs || ts < edge.firstTs) edge.firstTs = ts;
+        if (!edge.lastTs  || ts > edge.lastTs)  edge.lastTs  = ts;
+        if (edge.timestamps.length < NM_EDGE_TS_CAP) edge.timestamps.push(ts);
+      }
       processMap.get(procKey).connCount++;
     });
 
@@ -596,6 +795,10 @@
     nmNodes = [...processMap.values(), ...endpointMap.values()];
     nmEdges = [...edgeMap.values()];
 
+    // Wire node refs upfront — table needs them even when graph won't render
+    const nodeById = new Map(nmNodes.map(n => [n.id, n]));
+    nmEdges.forEach(e => { e.sourceNode = nodeById.get(e.source); e.targetNode = nodeById.get(e.target); });
+
     const canvas = document.getElementById('nmCanvas');
     const container = canvas.parentElement;
     const W = Math.max(300, container.clientWidth - 16);
@@ -604,6 +807,18 @@
     if (!nmNodes.length) {
       document.getElementById('nmStats').textContent = 'No network connection data in current filter.';
       nmSetupCanvas(canvas, W, H);
+      nmUpdateDetail(null);
+      return;
+    }
+
+    const extCount = [...endpointMap.values()].filter(e => e.isExternal).length;
+
+    // Density gate — past the threshold the force graph is unreadable AND locks the page.
+    // Refuse to render, surface scoping suggestions in the detail panel instead.
+    if (nmNodes.length > NM_MAX_NODES) {
+      nmRenderTooDenseHint(processMap, endpointMap, edgeMap, extCount, canvas, W, H);
+      nmUpdateLegendCounts();
+      if (nmTableVisible) nmBuildTable();
       return;
     }
 
@@ -619,20 +834,19 @@
       n.vx=0; n.vy=0; n.r=12; n.pinned=false;
     });
 
-    const nodeById = new Map(nmNodes.map(n => [n.id, n]));
-    nmEdges.forEach(e => { e.sourceNode = nodeById.get(e.source); e.targetNode = nodeById.get(e.target); });
-
     nmTransform = { x:0, y:0, scale:1 };
     nmSelectedNode = null; nmHoveredNode = null;
     nmRunForce(W, H);
+    nmDetectBeacons();
     nmSetupCanvas(canvas, W, H);
 
-    const extCount = [...endpointMap.values()].filter(e => e.isExternal).length;
+    const rangeStr = nmTimeRangeStr();
     document.getElementById('nmStats').innerHTML =
       `<strong style="color:var(--cb-yellow)">${processMap.size}</strong> processes · ` +
       `<strong>${endpointMap.size}</strong> endpoints ` +
       `(<strong style="color:#f08080">${extCount}</strong> external) · ` +
-      `<strong>${edgeMap.size}</strong> unique flows`;
+      `<strong>${edgeMap.size}</strong> unique flows` +
+      (rangeStr ? ` · <span style="color:var(--cb-os3);font-size:10px">${rangeStr}</span>` : '');
     nmUpdateLegendCounts();
     if (nmTableVisible) nmBuildTable();
   }
@@ -696,6 +910,13 @@
       const col = nmPortColor(e.ports);
       const lw  = 0.6 + 2.8*(e.count/maxCnt);
       const alp = 0.18 + 0.5*(e.count/maxCnt);
+      // Beacon glow underlay — regular-interval edges get a halo so C2/beacons pop
+      if (e.isBeacon) {
+        ctx.beginPath(); ctx.moveTo(s.x,s.y); ctx.lineTo(t.x,t.y);
+        ctx.strokeStyle = col; ctx.globalAlpha = 0.35; ctx.lineWidth = lw + 5;
+        ctx.shadowColor = col; ctx.shadowBlur = 10; ctx.stroke();
+        ctx.shadowBlur = 0;
+      }
       ctx.beginPath(); ctx.moveTo(s.x,s.y); ctx.lineTo(t.x,t.y);
       ctx.strokeStyle=col; ctx.globalAlpha=alp; ctx.lineWidth=lw; ctx.stroke();
       // Arrow at midpoint
@@ -713,6 +934,11 @@
         ctx.font='9px system-ui'; ctx.fillStyle='#A0AEAC'; ctx.globalAlpha=0.75;
         ctx.textAlign='center'; ctx.fillText(e.count, mx+ay*9, my-ax*9+3); ctx.globalAlpha=1;
       }
+      // Beacon marker at midpoint
+      if (e.isBeacon && nmTransform.scale>0.55) {
+        ctx.font='10px system-ui'; ctx.fillStyle=col; ctx.globalAlpha=1;
+        ctx.textAlign='center'; ctx.fillText('⏱', mx-ay*9, my+ax*9+3);
+      }
     });
 
     // All nodes in nmNodes already match the active filter (filtered at build time)
@@ -727,8 +953,10 @@
         fill   = isSel ? '#e83e3e' : 'rgba(232,62,62,0.18)';
         stroke = '#e83e3e';
       } else {
-        fill   = isSel ? '#2dd4bf' : 'rgba(45,212,191,0.18)';
-        stroke = '#2dd4bf';
+        // Internal endpoint — tint border by /24 subnet so cross-VLAN traffic pops
+        const tint = n.subnetTint || '#2dd4bf';
+        fill   = isSel ? tint : tint + '2d';
+        stroke = tint;
       }
       if (isSel||isHov) { ctx.shadowColor=stroke; ctx.shadowBlur=isSel?14:7; }
       ctx.beginPath(); ctx.arc(n.x,n.y,n.r*sc,0,Math.PI*2);
