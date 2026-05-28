@@ -510,6 +510,9 @@
     return !ip || /^(10\.|172\.(1[6-9]|2\d|3[01])\.|192\.168\.|127\.|0\.|169\.254\.|::1|fc|fd)/i.test(ip.trim());
   }
 
+  // Classification is by destination port only — DoH (DNS over 443) reads as HTTPS,
+  // SMB tunneled over a non-standard port reads as High port / Other. Mixed-protocol
+  // environments will miss the long tail. Use the log view if you need exact protocol.
   function nmPortColor(ports) {
     const ps = [...ports].map(Number);
     if (ps.some(p => p===443||p===8443))                        return '#3a9fd6'; // HTTPS
@@ -576,6 +579,47 @@
     });
   }
 
+  // Build process suggestions for the too-dense panel.
+  // For OS-level generic processes (svchost, lsass), filename alone narrows nothing.
+  // Expand svchost into '-k <ServiceGroup>' variants so each row scopes meaningfully.
+  function nmTopProcessSuggestions(processMap, max) {
+    const fnameAgg = new Map();
+    processMap.forEach(p => {
+      if (!fnameAgg.has(p.fname)) fnameAgg.set(p.fname, { total: 0, processes: [] });
+      const slot = fnameAgg.get(p.fname);
+      slot.total += p.connCount;
+      slot.processes.push(p);
+    });
+    const ranked = [...fnameAgg.entries()].sort((a, b) => b[1].total - a[1].total);
+    const out = [];
+    for (const [fname, slot] of ranked) {
+      if (out.length >= max) break;
+      const isSvchost = (fname || '').toLowerCase() === 'svchost.exe';
+      const distinctCmd = new Set(slot.processes.map(p => (p.cmdline || '').trim()));
+      if (isSvchost && distinctCmd.size > 1) {
+        const groupAgg = new Map();
+        slot.processes.forEach(p => {
+          const cmd = p.cmdline || '';
+          const m = cmd.match(/-k\s+(\S+)/i);
+          const grp = m ? m[1] : '(no -k)';
+          groupAgg.set(grp, (groupAgg.get(grp) || 0) + p.connCount);
+        });
+        const topGroups = [...groupAgg.entries()].sort((a, b) => b[1] - a[1]);
+        for (const [grp, n] of topGroups) {
+          if (out.length >= max) break;
+          out.push({
+            label: fname + (grp !== '(no -k)' ? ' -k ' + grp : ''),
+            filterVal: grp !== '(no -k)' ? grp : fname,
+            count: n
+          });
+        }
+      } else {
+        out.push({ label: fname, filterVal: fname, count: slot.total });
+      }
+    }
+    return out;
+  }
+
   // When result set is too dense for the force graph, draw a clear message on the canvas
   // and populate the detail panel with click-to-apply scoping suggestions.
   function nmRenderTooDenseHint(processMap, endpointMap, edgeMap, extCount, canvas, W, H) {
@@ -622,46 +666,84 @@
       (rangeStr ? ` · <span style="color:var(--cb-os3);font-size:10px">${rangeStr}</span>` : '');
 
     // Build scoping suggestions into the detail panel
-    const procs = [...processMap.values()].sort((a, b) => b.connCount - a.connCount).slice(0, 8);
-    const eps   = [...endpointMap.values()].sort((a, b) => b.totalConns - a.totalConns).slice(0, 8);
+    const eps  = [...endpointMap.values()].sort((a, b) => b.totalConns - a.totalConns).slice(0, 8);
     const hostAgg = {};
     processMap.forEach(p => { const d = p.device || '(none)'; hostAgg[d] = (hostAgg[d] || 0) + p.connCount; });
     const hostList = Object.entries(hostAgg).sort((a, b) => b[1] - a[1]).slice(0, 6);
+    const procSuggestions = nmTopProcessSuggestions(processMap, 8);
+
+    // Subnet rollup — group internal endpoints by /24
+    const subnetAgg = new Map();
+    endpointMap.forEach(ep => {
+      if (ep.isExternal) return;
+      const m = (ep.ip || '').match(/^(\d+\.\d+\.\d+)\./);
+      if (!m) return;
+      const prefix = m[1] + '.';
+      if (!subnetAgg.has(prefix)) subnetAgg.set(prefix, { events: 0, endpoints: 0, label: m[1] + '.0/24' });
+      const slot = subnetAgg.get(prefix);
+      slot.events    += ep.totalConns;
+      slot.endpoints += 1;
+    });
+    const subnetList = [...subnetAgg.entries()]
+      .map(([prefix, slot]) => ({ prefix, ...slot }))
+      .filter(s => s.endpoints >= 2)
+      .sort((a, b) => b.events - a.events)
+      .slice(0, 6);
+
+    // Port rollup — sum event count per port across edges
+    const portAgg = new Map();
+    edgeMap.forEach(e => {
+      e.ports.forEach(p => { portAgg.set(p, (portAgg.get(p) || 0) + e.count); });
+    });
+    const portList = [...portAgg.entries()].sort((a, b) => b[1] - a[1]).slice(0, 8);
+
+    // Event count behind the external-only toggle
+    let extEventCount = 0;
+    endpointMap.forEach(ep => { if (ep.isExternal) extEventCount += ep.totalConns; });
     const extOnlyAlready = document.getElementById('nmExtOnlyCheck').checked;
+
+    const hdr = (txt) => `<div style="font-size:9px;font-weight:700;color:var(--modal-muted);text-transform:uppercase;margin:12px 0 5px">${txt}</div>`;
+    const row = (act, val, label, count, color) => {
+      const c = color || 'var(--modal-text)';
+      return `<div class="nm-hint-row" data-act="${act}" data-val="${escapeHtml(val)}" style="padding:5px 7px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:11px;border-bottom:1px solid var(--modal-border)">
+        <span style="font-family:monospace;color:${c};flex:1;word-break:break-all">${escapeHtml(label)}</span>
+        <span style="color:var(--cb-yellow);font-weight:700;margin-left:8px">${count.toLocaleString()}</span>
+      </div>`;
+    };
 
     let html = '<div style="font-size:10px;font-weight:700;color:#f0a500;text-transform:uppercase;letter-spacing:.05em;margin-bottom:6px">Scope down to render</div>' +
                '<div style="font-size:11px;color:var(--modal-text);margin-bottom:10px;line-height:1.4">Click a suggestion to apply it as a filter and rebuild the map. Active connection-type filters are preserved.</div>';
 
     if (hostList.length > 1) {
-      html += '<div style="font-size:9px;font-weight:700;color:var(--modal-muted);text-transform:uppercase;margin:10px 0 5px">Top Hosts</div>';
-      hostList.forEach(([h, n]) => {
-        html += `<div class="nm-hint-row" data-act="host" data-val="${escapeHtml(h)}" style="padding:5px 7px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:11px;border-bottom:1px solid var(--modal-border)">
-          <span style="font-family:monospace;color:var(--modal-text);flex:1;word-break:break-all">${escapeHtml(h)}</span>
-          <span style="color:var(--cb-yellow);font-weight:700;margin-left:8px">${n.toLocaleString()}</span>
-        </div>`;
+      html += hdr('Top Hosts');
+      hostList.forEach(([h, n]) => { html += row('host', h, h, n); });
+    }
+
+    if (subnetList.length > 1) {
+      html += hdr('Top Subnets (internal)');
+      subnetList.forEach(s => {
+        const lbl = s.label + ' · ' + s.endpoints + ' host' + (s.endpoints === 1 ? '' : 's');
+        html += row('subnet', s.prefix, lbl, s.events, '#7fffd4');
       });
     }
 
-    html += '<div style="font-size:9px;font-weight:700;color:var(--modal-muted);text-transform:uppercase;margin:12px 0 5px">Top Processes</div>';
-    procs.forEach(p => {
-      html += `<div class="nm-hint-row" data-act="proc" data-val="${escapeHtml(p.fname)}" style="padding:5px 7px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:11px;border-bottom:1px solid var(--modal-border)">
-        <span style="font-family:monospace;color:var(--modal-text);flex:1;word-break:break-all">${escapeHtml(p.fname)}</span>
-        <span style="color:var(--cb-yellow);font-weight:700;margin-left:8px">${p.connCount.toLocaleString()}</span>
-      </div>`;
+    html += hdr('Top Processes');
+    procSuggestions.forEach(p => { html += row('proc', p.filterVal, p.label, p.count); });
+
+    html += hdr('Top Destinations');
+    eps.forEach(ep => {
+      const c = ep.isExternal ? '#f08080' : '#7fffd4';
+      html += row('dest', ep.label, ep.label, ep.totalConns, c);
     });
 
-    html += '<div style="font-size:9px;font-weight:700;color:var(--modal-muted);text-transform:uppercase;margin:12px 0 5px">Top Destinations</div>';
-    eps.forEach(ep => {
-      const col = ep.isExternal ? '#f08080' : '#7fffd4';
-      html += `<div style="padding:5px 7px;display:flex;justify-content:space-between;align-items:center;font-size:11px;border-bottom:1px solid var(--modal-border)">
-        <span style="font-family:monospace;color:${col};flex:1;word-break:break-all">${escapeHtml(ep.label)}</span>
-        <span style="color:var(--cb-yellow);font-weight:700;margin-left:8px">${ep.totalConns.toLocaleString()}</span>
-      </div>`;
-    });
+    if (portList.length >= 3) {
+      html += hdr('Top Ports');
+      portList.forEach(([p, n]) => { html += row('port', p, 'Port ' + p, n); });
+    }
 
     if (extCount && !extOnlyAlready) {
       html += `<div class="nm-hint-row" data-act="ext" style="margin-top:12px;padding:7px 9px;border-radius:4px;cursor:pointer;background:rgba(240,128,128,0.08);border:1px solid rgba(240,128,128,0.3);text-align:center;font-size:11px;color:#f08080;font-weight:700">
-        🔴 Show external endpoints only (${extCount})
+        🔴 Show external only · ${extCount} endpoint${extCount === 1 ? '' : 's'} · ${extEventCount.toLocaleString()} event${extEventCount === 1 ? '' : 's'}
       </div>`;
     }
 
@@ -676,6 +758,7 @@
       el.onclick = function() {
         const act = el.dataset.act, val = el.dataset.val;
         const preserveTypes = new Set(nmEdgeFilter);
+        let needsApplyFilter = false;
         if (act === 'host') {
           const sel = document.getElementById('nmHostFilter');
           if (sel) sel.value = val;
@@ -685,7 +768,16 @@
         } else if (act === 'ext') {
           const cb = document.getElementById('nmExtOnlyCheck');
           if (cb) cb.checked = true;
+        } else if (act === 'dest' || act === 'subnet' || act === 'port') {
+          // Add a table-row filter against the underlying data — applyFilter() updates
+          // filteredSorted, which nmActiveRows() picks up on the next buildNetworkMap.
+          const id = ++filterRowCounter;
+          filterRows.push({ id, col: '', mode: 'contains', value: val, connector: 'AND' });
+          renderFilterRows();
+          document.getElementById('filterBar').classList.remove('hidden');
+          needsApplyFilter = true;
         }
+        if (needsApplyFilter) applyFilter();
         nmEdgeFilter = preserveTypes;
         nmNodes = []; nmEdges = [];
         nmCanvasInited = false;
