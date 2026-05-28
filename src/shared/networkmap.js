@@ -320,11 +320,11 @@
         nmTableSortDir = (nmTableSortCol === col) ? -nmTableSortDir : -1;
         nmTableSortCol = col;
         table.querySelectorAll('th').forEach(function(t) { t.style.color = 'var(--cb-text-inverse)'; });
-        th.style.color = 'var(--cb-yellow)';
+        th.style.color = 'var(--cb-yellow-text)';
         nmRefreshTableBody(tbody);
       };
       const arrow = nmTableSortCol === col ? (nmTableSortDir === -1 ? ' ↓' : ' ↑') : '';
-      th.innerHTML = label + '<span style="color:var(--cb-yellow);font-size:10px">' + arrow + '</span>';
+      th.innerHTML = label + '<span style="color:var(--cb-yellow-text);font-size:10px">' + arrow + '</span>';
       return th;
     }
 
@@ -658,7 +658,7 @@
     const rangeStr = nmTimeRangeStr();
     document.getElementById('nmStats').innerHTML =
       `<span style="color:#f0a500">⚠</span> ` +
-      `<strong style="color:var(--cb-yellow)">${processMap.size}</strong> processes · ` +
+      `<strong style="color:var(--cb-yellow-text)">${processMap.size}</strong> processes · ` +
       `<strong>${endpointMap.size}</strong> endpoints ` +
       `(<strong style="color:#f08080">${extCount}</strong> external) · ` +
       `<strong>${edgeMap.size}</strong> unique flows · ` +
@@ -707,7 +707,7 @@
       const c = color || 'var(--modal-text)';
       return `<div class="nm-hint-row" data-act="${act}" data-val="${escapeHtml(val)}" style="padding:5px 7px;border-radius:4px;cursor:pointer;display:flex;justify-content:space-between;align-items:center;font-size:11px;border-bottom:1px solid var(--modal-border)">
         <span style="font-family:monospace;color:${c};flex:1;word-break:break-all">${escapeHtml(label)}</span>
-        <span style="color:var(--cb-yellow);font-weight:700;margin-left:8px">${count.toLocaleString()}</span>
+        <span style="color:var(--cb-yellow-text);font-weight:700;margin-left:8px">${count.toLocaleString()}</span>
       </div>`;
     };
 
@@ -934,7 +934,7 @@
 
     const rangeStr = nmTimeRangeStr();
     document.getElementById('nmStats').innerHTML =
-      `<strong style="color:var(--cb-yellow)">${processMap.size}</strong> processes · ` +
+      `<strong style="color:var(--cb-yellow-text)">${processMap.size}</strong> processes · ` +
       `<strong>${endpointMap.size}</strong> endpoints ` +
       `(<strong style="color:#f08080">${extCount}</strong> external) · ` +
       `<strong>${edgeMap.size}</strong> unique flows` +
@@ -1123,7 +1123,7 @@
         if (!h) { tip.style.display='none'; return; }
         let html='';
         if (h.type==='process') {
-          html=`<strong style="color:var(--cb-yellow)">${escapeHtml(h.fname)}</strong>`+
+          html=`<strong style="color:var(--cb-yellow-text)">${escapeHtml(h.fname)}</strong>`+
             (h.pid?` <span style="color:#537173">PID:${h.pid}</span>`:'')+
             (h.device?`<br><span style="color:#778F8D">${escapeHtml(h.device)}</span>`:'')+
             `<br><span style="color:#A0AEAC">${h.connCount} connection(s)</span>`;
@@ -1277,12 +1277,12 @@
     let html='';
     const R = (k,v) => v?`<div class="nm-dp-row"><span>${k}</span><span>${escapeHtml(String(v))}</span></div>`:'';
     if (node.type==='process') {
-      html=`<div style="font-size:10px;font-weight:700;color:var(--cb-yellow);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Process</div>
+      html=`<div style="font-size:10px;font-weight:700;color:var(--cb-yellow-text);text-transform:uppercase;letter-spacing:.05em;margin-bottom:8px">Process</div>
         <div style="font-size:14px;font-weight:700;color:var(--modal-text);margin-bottom:6px;font-family:monospace">${escapeHtml(node.fname)}</div>`+
         R('PID',node.pid)+R('Host',node.device)+R('User',node.user)+R('Path',node.fpath)+
         R('First seen',node.firstSeen?node.firstSeen.slice(0,19).replace('T',' '):'')+
         R('Last seen',node.lastSeen?node.lastSeen.slice(0,19).replace('T',' '):'')+
-        `<div class="nm-dp-row"><span>Connections</span><span style="color:var(--cb-yellow);font-weight:700">${node.connCount}</span></div>`;
+        `<div class="nm-dp-row"><span>Connections</span><span style="color:var(--cb-yellow-text);font-weight:700">${node.connCount}</span></div>`;
       const out=nmEdges.filter(e=>e.sourceNode===node).sort((a,b)=>b.count-a.count);
       if (out.length) {
         html+=`<div style="font-size:9px;font-weight:700;color:var(--modal-muted);text-transform:uppercase;margin:12px 0 5px">Connected to (${out.length})</div>`;
@@ -1320,7 +1320,7 @@
           const intv=nmCalcInterval(e.timestamps);
           html+=`<div style="padding:5px 0;border-bottom:1px solid var(--modal-border)">
             <div style="display:flex;gap:5px;align-items:center">
-              <span style="color:var(--cb-yellow);font-family:monospace;font-size:11px;flex:1">${escapeHtml(p.fname)}</span>
+              <span style="color:var(--cb-yellow-text);font-family:monospace;font-size:11px;flex:1">${escapeHtml(p.fname)}</span>
               <span style="color:var(--modal-muted);white-space:nowrap;font-size:10px">×${e.count}${pts?' :'+pts:''}</span>
             </div>${intv?`<div style="color:#f0a500;font-size:10px;margin-top:2px">⏱ ~${intv} avg interval${e.count>=3?' — possible beaconing':''}</div>`:''}
           </div>`;
