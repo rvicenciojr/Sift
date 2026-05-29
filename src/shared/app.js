@@ -2121,8 +2121,19 @@
     const blob = new Blob([src.textContent], { type: 'application/javascript' });
     const url  = URL.createObjectURL(blob);
     const worker = new Worker(url);
-    // Revoke after a short delay to ensure the worker has loaded the script
-    setTimeout(() => URL.revokeObjectURL(url), 2000);
+    // Revoke once the script is loaded (first message/error proves load completed),
+    // with a 10s backstop. Idempotent, and touches ONLY the URL — the worker is
+    // long-lived and reused by callers (e.g. overview), so we never terminate it here.
+    let revoked = false;
+    const revoke = () => {
+      if (revoked) return;
+      revoked = true;
+      clearTimeout(backstop);
+      URL.revokeObjectURL(url);
+    };
+    const backstop = setTimeout(revoke, 10000);
+    worker.addEventListener('message', revoke, { once: true });
+    worker.addEventListener('error',   revoke, { once: true });
     return worker;
   }
 
